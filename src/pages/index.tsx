@@ -76,7 +76,7 @@ export default function Home() {
       </div>
 
       {/* Posts Feed */}
-      <div>
+      <div className="pb-20">
         {posts.map((post) => (
           <article key={post.id} className="border-b border-gray-100">
             {/* Post Header */}

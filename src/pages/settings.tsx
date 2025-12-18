@@ -1,3 +1,4 @@
+import { useRouter } from 'next/router';
 import { 
   ChevronRight, 
   User,
@@ -6,7 +7,8 @@ import {
   Users,
   EyeOff,
   Send,
-  Shield
+  Shield,
+  LogOut
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -33,8 +35,16 @@ const howOthersInteractItems = [
 ];
 
 export default function SettingsPage() {
+  const router = useRouter();
+
+  const handleLogout = () => {
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('username');
+    router.push('/login');
+  };
+
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-white">
 
       {/* Settings and Privacy Link */}
       <Link href="#" className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
@@ -98,7 +108,7 @@ export default function SettingsPage() {
       </div>
 
       {/* How others can interact with you */}
-      <div className="mt-6 pb-8">
+      <div className="mt-6">
         <p className="px-4 text-xs text-gray-500 uppercase tracking-wide mb-2">
           How others can interact with you
         </p>
@@ -110,6 +120,17 @@ export default function SettingsPage() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Logout */}
+      <div className="mt-6 pb-24 px-4">
+        <button 
+          onClick={handleLogout}
+          className="flex items-center gap-3 w-full px-4 py-3 bg-red-50 hover:bg-red-100 rounded-xl text-red-500 transition-colors"
+        >
+          <LogOut className="w-6 h-6" />
+          <span className="text-base font-medium">Log out</span>
+        </button>
       </div>
     </div>
   );

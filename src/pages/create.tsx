@@ -15,15 +15,23 @@ const galleryImages = [
   'https://picsum.photos/seed/create10/400/400',
   'https://picsum.photos/seed/create11/400/400',
   'https://picsum.photos/seed/create12/400/400',
+  'https://picsum.photos/seed/create13/400/400',
+  'https://picsum.photos/seed/create14/400/400',
+  'https://picsum.photos/seed/create15/400/400',
+  'https://picsum.photos/seed/create16/400/400',
+  'https://picsum.photos/seed/create17/400/400',
+  'https://picsum.photos/seed/create18/400/400',
+  'https://picsum.photos/seed/create19/400/400',
+  'https://picsum.photos/seed/create20/400/400',
 ];
 
 const selectedImage = 'https://picsum.photos/seed/window/600/600';
 
 export default function CreatePage() {
   return (
-    <div className="fixed inset-0 bg-black z-[100] flex flex-col">
+    <div>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-black">
+      <div className="flex items-center justify-between px-4 py-3 bg-black sticky top-0 z-10">
         <Link href="/" className="text-white">
           <X className="w-6 h-6" />
         </Link>
@@ -59,8 +67,8 @@ export default function CreatePage() {
         </button>
       </div>
 
-      {/* Gallery Grid */}
-      <div className="flex-1 bg-black overflow-y-auto">
+      {/* Gallery Grid with floating tabs */}
+      <div className="bg-black relative">
         <div className="grid grid-cols-4 gap-0.5">
           {/* Camera button */}
           <button className="aspect-square bg-gray-800 flex items-center justify-center">
@@ -107,23 +115,22 @@ export default function CreatePage() {
             </button>
           ))}
         </div>
-      </div>
 
-      {/* Bottom Tabs */}
-      <div className="bg-black py-4">
-        <div className="flex justify-center gap-2">
-          <button className="px-6 py-2 bg-gray-800 rounded-full text-white text-sm font-medium">
-            POST
-          </button>
-          <button className="px-6 py-2 bg-gray-800 rounded-full text-white text-sm font-medium">
-            STORY
-          </button>
-          <button className="px-6 py-2 bg-gray-800 rounded-full text-white text-sm font-medium">
-            REEL
-          </button>
+        {/* Floating Bottom Tabs */}
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+          <div className="bg-neutral-700/90 backdrop-blur-sm rounded-full p-1 flex gap-1">
+            <button className="px-5 py-2 bg-neutral-500 rounded-full text-white text-xs font-semibold tracking-wide">
+              POST
+            </button>
+            <button className="px-5 py-2 rounded-full text-neutral-300 text-xs font-semibold tracking-wide hover:text-white transition-colors">
+              STORY
+            </button>
+            <button className="px-5 py-2 rounded-full text-neutral-300 text-xs font-semibold tracking-wide hover:text-white transition-colors">
+              REEL
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-

@@ -177,7 +177,7 @@ export default function Home() {
             : false;
 
           return (
-            <article key={post.id} className="border-b border-gray-100">
+            <article key={post.id}>
               {/* Post Header */}
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-3">

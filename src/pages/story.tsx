@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
-import { X, MoreHorizontal, Send } from 'lucide-react';
+import { X, MoreHorizontal, Send, VolumeX, Heart, Music } from 'lucide-react';
 import Avatar from '@/components/shared/Avatar';
 import { useApi } from '@/hooks/useApi';
 
@@ -207,15 +207,8 @@ export default function StoryPage() {
 
         {/* Story Header */}
         <div className="absolute top-8 left-0 right-0 flex items-center justify-between px-4 py-2 z-10">
-          <div className="flex items-center gap-2">
-            <Avatar src={avatar || 'https://i.pravatar.cc/150'} alt={username} size="sm" />
-            <span className="text-white font-semibold text-sm">{username}</span>
-            <span className="text-gray-300 text-xs">{time}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={(e) => e.stopPropagation()} className="p-1 text-white">
-              <MoreHorizontal className="w-6 h-6" />
-            </button>
+          {/* Left side controls */}
+          <div className="flex items-center gap-3">
             <button 
               onClick={(e) => {
                 e.stopPropagation();
@@ -225,6 +218,27 @@ export default function StoryPage() {
             >
               <X className="w-6 h-6" />
             </button>
+            <button onClick={(e) => e.stopPropagation()} className="p-1 text-white">
+              <MoreHorizontal className="w-6 h-6" />
+            </button>
+            <button onClick={(e) => e.stopPropagation()} className="p-1 text-white">
+              <VolumeX className="w-6 h-6" />
+            </button>
+          </div>
+          
+          {/* Right side - user info */}
+          <div className="flex items-center gap-2">
+            <div className="flex flex-col items-end">
+              <div className="flex items-center gap-1">
+                <span className="text-white/70 text-xs">{time}</span>
+                <span className="text-white font-semibold text-sm">{username}</span>
+              </div>
+              <div className="flex items-center gap-1 text-white/70 text-xs">
+                <span>BTS · Black Swan</span>
+                <Music className="w-3 h-3" />
+              </div>
+            </div>
+            <Avatar src={avatar || 'https://i.pravatar.cc/150'} alt={username} size="sm" />
           </div>
         </div>
       </div>
@@ -232,16 +246,19 @@ export default function StoryPage() {
       {/* Story Input */}
       <div 
         onClick={(e) => e.stopPropagation()}
-        className="absolute bottom-0 left-0 right-0 p-4 flex items-center gap-3 bg-black/50 z-10"
+        className="absolute bottom-0 left-0 right-0 p-4 flex items-center gap-3 bg-black z-10"
       >
-        <input
-          type="text"
-          placeholder="Send message"
-          className="flex-1 bg-white/20 border border-white/30 rounded-full px-4 py-2 text-white text-sm placeholder-gray-300 focus:ring-0 outline-none"
-        />
         <button className="text-white">
           <Send className="w-6 h-6" />
         </button>
+        <button className="text-white">
+          <Heart className="w-6 h-6" />
+        </button>
+        <input
+          type="text"
+          placeholder={`Reply to ${username}...`}
+          className="flex-1 bg-transparent border border-white/30 rounded-full px-4 py-2 text-white text-sm placeholder-gray-400 focus:ring-0 outline-none"
+        />
       </div>
     </div>
   );

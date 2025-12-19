@@ -118,29 +118,29 @@ async function main() {
 
   console.log('✅ Created stories');
 
-  // Create some follows
-  await Promise.all([
-    prisma.follow.create({
-      data: {
-        followerId: demoUser.id,
-        followingId: users[0].id,
-      },
-    }),
-    prisma.follow.create({
-      data: {
-        followerId: demoUser.id,
-        followingId: users[1].id,
-      },
-    }),
-    prisma.follow.create({
-      data: {
-        followerId: users[0].id,
-        followingId: demoUser.id,
-      },
-    }),
-  ]);
-
-  console.log('✅ Created follows');
+  // Create some follows (skip if already exist)
+  try {
+    await Promise.all([
+      prisma.follow.upsert({
+        where: { followerId_followingId: { followerId: demoUser.id, followingId: users[0].id } },
+        update: {},
+        create: { followerId: demoUser.id, followingId: users[0].id },
+      }),
+      prisma.follow.upsert({
+        where: { followerId_followingId: { followerId: demoUser.id, followingId: users[1].id } },
+        update: {},
+        create: { followerId: demoUser.id, followingId: users[1].id },
+      }),
+      prisma.follow.upsert({
+        where: { followerId_followingId: { followerId: users[0].id, followingId: demoUser.id } },
+        update: {},
+        create: { followerId: users[0].id, followingId: demoUser.id },
+      }),
+    ]);
+    console.log('✅ Created follows');
+  } catch (e) {
+    console.log('⏭️ Follows already exist, skipping...');
+  }
 
   // Create some comments
   await Promise.all([

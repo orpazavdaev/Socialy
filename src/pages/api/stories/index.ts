@@ -4,15 +4,18 @@ import { getUserFromRequest } from '@/lib/auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
-    return getStories(res);
+    return getStories(req, res);
   } else if (req.method === 'POST') {
     return createStory(req, res);
   }
   return res.status(405).json({ error: 'Method not allowed' });
 }
 
-async function getStories(res: NextApiResponse) {
+async function getStories(req: NextApiRequest, res: NextApiResponse) {
   try {
+    const payload = getUserFromRequest(req);
+    const currentUserId = payload?.userId;
+
     // Get stories from last 24 hours
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
@@ -31,21 +34,33 @@ async function getStories(res: NextApiResponse) {
             avatar: true,
           },
         },
+        views: currentUserId ? {
+          where: { userId: currentUserId },
+          select: { id: true },
+        } : false,
       },
     });
 
-    // Group stories by user
+    // Group stories by user and check if all stories are viewed
     const groupedStories = stories.reduce((acc, story) => {
       const userId = story.user.id;
       if (!acc[userId]) {
         acc[userId] = {
           user: story.user,
           stories: [],
+          allViewed: true,
         };
       }
-      acc[userId].stories.push(story);
+      const isViewed = currentUserId && story.views && story.views.length > 0;
+      acc[userId].stories.push({
+        ...story,
+        isViewed: !!isViewed,
+      });
+      if (!isViewed) {
+        acc[userId].allViewed = false;
+      }
       return acc;
-    }, {} as Record<string, { user: typeof stories[0]['user']; stories: typeof stories }>);
+    }, {} as Record<string, { user: typeof stories[0]['user']; stories: Array<typeof stories[0] & { isViewed: boolean }>; allViewed: boolean }>);
 
     res.status(200).json(Object.values(groupedStories));
   } catch (error) {

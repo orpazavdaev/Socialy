@@ -4,9 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // The `url` property is no longer supported in Prisma 5+.
-  // Move DATABASE_URL config to prisma.config.ts as per Prisma documentation:
-  // https://pris.ly/d/config-datasource
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -34,6 +32,9 @@ model User {
   
   // Story highlights
   highlights Highlight[]
+  
+  // Story views
+  storyViews StoryView[]
 }
 
 model Post {
@@ -84,6 +85,21 @@ model Story {
 
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  views     StoryView[]
+}
+
+model StoryView {
+  id        String   @id @default(cuid())
+  viewedAt  DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  storyId   String
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, storyId])
 }
 
 model Highlight {

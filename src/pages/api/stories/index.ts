@@ -4,16 +4,24 @@ import { getUserFromRequest } from '@/lib/auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
-    return getPosts(req, res);
+    return getStories(res);
   } else if (req.method === 'POST') {
-    return createPost(req, res);
+    return createStory(req, res);
   }
   return res.status(405).json({ error: 'Method not allowed' });
 }
 
-async function getPosts(req: NextApiRequest, res: NextApiResponse) {
+async function getStories(res: NextApiResponse) {
   try {
-    const posts = await prisma.post.findMany({
+    // Get stories from last 24 hours
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const stories = await prisma.story.findMany({
+      where: {
+        createdAt: {
+          gte: oneDayAgo,
+        },
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         user: {
@@ -23,56 +31,48 @@ async function getPosts(req: NextApiRequest, res: NextApiResponse) {
             avatar: true,
           },
         },
-        _count: {
-          select: {
-            likes: true,
-            comments: true,
-          },
-        },
-        likes: {
-          select: {
-            userId: true,
-          },
-        },
       },
     });
 
-    const postsWithCounts = posts.map((post) => ({
-      id: post.id,
-      image: post.image,
-      caption: post.caption,
-      createdAt: post.createdAt,
-      user: post.user,
-      likesCount: post._count.likes,
-      commentsCount: post._count.comments,
-      likedByUser: post.likes.map((like) => like.userId),
-    }));
+    // Group stories by user
+    const groupedStories = stories.reduce((acc, story) => {
+      const userId = story.user.id;
+      if (!acc[userId]) {
+        acc[userId] = {
+          user: story.user,
+          stories: [],
+        };
+      }
+      acc[userId].stories.push(story);
+      return acc;
+    }, {} as Record<string, { user: typeof stories[0]['user']; stories: typeof stories }>);
 
-    res.status(200).json(postsWithCounts);
+    res.status(200).json(Object.values(groupedStories));
   } catch (error) {
-    console.error('Get posts error:', error);
+    console.error('Get stories error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
 
-async function createPost(req: NextApiRequest, res: NextApiResponse) {
+async function createStory(req: NextApiRequest, res: NextApiResponse) {
   try {
     const payload = getUserFromRequest(req);
     if (!payload) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { image, caption } = req.body;
+    const { image, music } = req.body;
 
     if (!image) {
       return res.status(400).json({ error: 'Image is required' });
     }
 
-    const post = await prisma.post.create({
+    const story = await prisma.story.create({
       data: {
         image,
-        caption,
+        music,
         userId: payload.userId,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
       },
       include: {
         user: {
@@ -85,9 +85,11 @@ async function createPost(req: NextApiRequest, res: NextApiResponse) {
       },
     });
 
-    res.status(201).json(post);
+    res.status(201).json(story);
   } catch (error) {
-    console.error('Create post error:', error);
+    console.error('Create story error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+

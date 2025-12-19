@@ -1,34 +1,25 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import prisma from '@/lib/prisma';
 
-const users = [
-  {
-    id: 1,
-    username: 'orpaz_avdaev',
-    fullName: 'Orpaz Avdaev',
-    avatar: 'https://i.pravatar.cc/150?img=33',
-    bio: 'Digital creator',
-    posts: 27,
-    followers: 137,
-    following: 154,
-  },
-];
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-export default function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  if (req.method === 'GET') {
-    res.status(200).json({ users });
-  } else if (req.method === 'POST') {
-    const body = req.body;
-    res.status(201).json({
-      message: 'User creation endpoint',
-      received: body,
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        username: true,
+        fullName: true,
+        avatar: true,
+      },
+      orderBy: { username: 'asc' },
     });
-  } else {
-    res.setHeader('Allow', ['GET', 'POST']);
-    res.status(405).end(`Method ${req.method} Not Allowed`);
+
+    res.status(200).json(users);
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 }
-
-

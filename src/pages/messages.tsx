@@ -1,146 +1,172 @@
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { ChevronDown, Search, PenSquare } from 'lucide-react';
 import Avatar from '@/components/shared/Avatar';
+import { useAuth } from '@/context/AuthContext';
+import { useApi } from '@/hooks/useApi';
 
-interface Message {
-  id: number;
-  username: string;
-  avatar: string;
-  lastMessage: string;
-  timeAgo: string;
-  unread?: boolean;
+interface Conversation {
+  user: {
+    id: string;
+    username: string;
+    avatar: string;
+  };
+  lastMessage: {
+    id: string;
+    text: string;
+    createdAt: string;
+  };
+  unread: boolean;
 }
 
-const messages: Message[] = [
-  {
-    id: 1,
-    username: 'cora.reily',
-    avatar: 'https://i.pravatar.cc/150?img=5',
-    lastMessage: 'vitae facilisis condimentum blandit ...',
-    timeAgo: '10 hours',
-    unread: true,
-  },
-  {
-    id: 2,
-    username: 'galgadot',
-    avatar: 'https://i.pravatar.cc/150?img=9',
-    lastMessage: '😊',
-    timeAgo: '22 hours',
-    unread: true,
-  },
-  {
-    id: 3,
-    username: 'anna.zak',
-    avatar: 'https://i.pravatar.cc/150?img=16',
-    lastMessage: 'Great!!',
-    timeAgo: '1 day',
-  },
-  {
-    id: 4,
-    username: 'mergi',
-    avatar: 'https://i.pravatar.cc/150?img=12',
-    lastMessage: 'lacus hendrerit',
-    timeAgo: '3 days',
-  },
-  {
-    id: 5,
-    username: 'madona',
-    avatar: 'https://i.pravatar.cc/150?img=25',
-    lastMessage: 'mattis',
-    timeAgo: '1 week',
-  },
-  {
-    id: 6,
-    username: 'ran_danker123',
-    avatar: 'https://i.pravatar.cc/150?img=8',
-    lastMessage: 'Lorem ipsum arcu sapien prfeeas...',
-    timeAgo: '3 weeks',
-  },
-  {
-    id: 7,
-    username: 'moshe_peretz',
-    avatar: 'https://i.pravatar.cc/150?img=11',
-    lastMessage: 'ullamcorper morbi',
-    timeAgo: '17 weeks',
-  },
-  {
-    id: 8,
-    username: 'shakira',
-    avatar: 'https://i.pravatar.cc/150?img=20',
-    lastMessage: 'neque',
-    timeAgo: '1 year',
-  },
-];
+interface User {
+  id: string;
+  username: string;
+  avatar: string;
+  fullName: string;
+}
+
+function getTimeAgo(date: string): string {
+  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+  
+  if (seconds < 60) return 'now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / 86400)}d`;
+}
 
 export default function MessagesPage() {
+  const { user } = useAuth();
+  const { get } = useApi();
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    loadConversations();
+    loadUsers();
+  }, []);
+
+  const loadConversations = async () => {
+    const data = await get<Conversation[]>('/api/messages');
+    if (data) {
+      setConversations(data);
+    }
+  };
+
+  const loadUsers = async () => {
+    const data = await get<User[]>('/api/users');
+    if (data) {
+      setAllUsers(data.filter(u => u.id !== user?.id));
+    }
+  };
+
+  const filteredUsers = allUsers.filter(u => 
+    u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.fullName?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="bg-white min-h-screen">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-        <button className="p-1">
-          <PenSquare className="w-6 h-6" />
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-lg">{user?.username || 'Messages'}</span>
+          <ChevronDown className="w-4 h-4 text-gray-700" />
+        </div>
+        <button 
+          onClick={() => setShowNewChat(!showNewChat)}
+          className="p-1"
+        >
+          <PenSquare className="w-6 h-6 text-gray-700" />
         </button>
-        <button className="flex items-center gap-1">
-          <span className="font-semibold">orpaz_avdaev</span>
-          <ChevronDown className="w-4 h-4" />
-        </button>
-        <div className="w-8" />
       </div>
 
-      {/* Search */}
+      {/* Search Bar */}
       <div className="px-4 py-3">
-        <div className="flex items-center justify-between bg-gray-100 rounded-lg px-4 py-2.5">
-          <span className="text-gray-400 text-sm">search</span>
+        <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-4 py-2.5">
           <Search className="w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-1 bg-transparent text-sm outline-none"
+          />
         </div>
       </div>
+
+      {/* New Chat - User List */}
+      {showNewChat && (
+        <div className="border-b border-gray-100">
+          <p className="px-4 py-2 text-sm font-semibold text-gray-500">Start new chat with:</p>
+          <div className="max-h-48 overflow-y-auto">
+            {filteredUsers.map((u) => (
+              <Link 
+                key={u.id} 
+                href={`/chat/${u.id}`}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50"
+              >
+                <Avatar src={u.avatar || 'https://i.pravatar.cc/150'} alt={u.username} size="md" />
+                <div>
+                  <p className="font-semibold text-sm">{u.username}</p>
+                  <p className="text-xs text-gray-500">{u.fullName}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Your Note */}
-      <div className="flex justify-end px-4 py-2">
-        <div className="flex flex-col items-center">
-          <Avatar src="https://i.pravatar.cc/150?img=33" size="lg" />
-          <span className="text-xs text-gray-500 mt-1">your note</span>
-        </div>
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
+        <Avatar src={user?.avatar || 'https://i.pravatar.cc/150?img=33'} size="md" />
+        <span className="text-sm text-gray-500">Your note</span>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center justify-between px-4 py-2">
-        <span className="text-sm text-gray-500">Requests</span>
+      {/* Requests / Messages */}
+      <div className="flex items-center justify-between px-4 py-3">
         <span className="font-semibold text-sm">Messages</span>
+        <button className="text-blue-500 text-sm font-semibold">Requests</button>
       </div>
 
-      {/* Messages List */}
-      <div className="divide-y divide-gray-50">
-        {messages.map((message) => (
-          <button
-            key={message.id}
-            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
-          >
-            {/* Unread indicator */}
-            <div className="w-2 flex-shrink-0">
-              {message.unread && (
-                <div className="w-2 h-2 bg-blue-500 rounded-full" />
-              )}
-            </div>
-
-            {/* Message content */}
-            <div className="flex-1 min-w-0 text-right">
-              <div className="flex items-center justify-end gap-2">
-                <span className="text-xs text-gray-400">{message.timeAgo}</span>
-                <span className="font-semibold text-sm">{message.username}</span>
-              </div>
-              {message.lastMessage && (
-                <p className={`text-sm truncate ${message.unread ? 'text-gray-900 font-semibold' : 'text-gray-500'}`}>
-                  {message.lastMessage}
+      {/* Message List */}
+      <div className="pb-20">
+        {conversations.length === 0 ? (
+          <div className="text-center text-gray-500 py-8">
+            <p>No messages yet</p>
+            <p className="text-sm">Click the pen icon to start a new chat!</p>
+          </div>
+        ) : (
+          conversations.map((conv) => (
+            <Link 
+              key={conv.user.id} 
+              href={`/chat/${conv.user.id}`}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50"
+            >
+              <Avatar 
+                src={conv.user.avatar || 'https://i.pravatar.cc/150'} 
+                alt={conv.user.username} 
+                size="lg" 
+              />
+              <div className="flex-1">
+                <p className="font-semibold text-sm">{conv.user.username}</p>
+                <p className="text-xs text-gray-500">
+                  <span className={conv.unread ? 'font-semibold text-gray-900' : ''}>
+                    {conv.lastMessage.text}
+                  </span>
+                  {' • '}
+                  {getTimeAgo(conv.lastMessage.createdAt)}
                 </p>
+              </div>
+              {conv.unread && (
+                <span className="w-2 h-2 bg-blue-500 rounded-full" />
               )}
-            </div>
-
-            {/* Avatar */}
-            <Avatar src={message.avatar} alt={message.username} size="md" />
-          </button>
-        ))}
+            </Link>
+          ))
+        )}
       </div>
     </div>
   );
 }
-

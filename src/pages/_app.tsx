@@ -3,12 +3,17 @@ import { useRouter } from 'next/router';
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
 import BottomNav from '@/components/layout/BottomNav';
+import { AuthProvider } from '@/context/AuthContext';
 import '@/styles/globals.css';
 
 // Pages that don't require authentication
 const publicPages = ['/login'];
 
-export default function App({ Component, pageProps }: AppProps) {
+  // Pages without bottom nav (full screen pages)
+  const noNavPages = ['/login', '/create', '/story'];
+  const noNavPrefixes = ['/chat/'];
+
+function AppContent({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -34,10 +39,10 @@ export default function App({ Component, pageProps }: AppProps) {
     );
   }
 
-  // Pages without bottom nav (full screen pages)
-  const noNavPages = ['/login', '/create', '/story'];
+  const isNoNavPage = noNavPages.includes(router.pathname) || 
+    noNavPrefixes.some(prefix => router.pathname.startsWith(prefix));
   
-  if (noNavPages.includes(router.pathname)) {
+  if (isNoNavPage) {
     return (
       <>
         <Head>
@@ -71,5 +76,13 @@ export default function App({ Component, pageProps }: AppProps) {
         <BottomNav />
       </div>
     </>
+  );
+}
+
+export default function App(props: AppProps) {
+  return (
+    <AuthProvider>
+      <AppContent {...props} />
+    </AuthProvider>
   );
 }

@@ -1,4 +1,3 @@
-import { useRouter } from 'next/router';
 import { 
   ChevronRight, 
   User,
@@ -11,6 +10,7 @@ import {
   LogOut
 } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
 
 const accountCenterItems = [
   { icon: User, label: 'Personal Details' },
@@ -35,13 +35,7 @@ const howOthersInteractItems = [
 ];
 
 export default function SettingsPage() {
-  const router = useRouter();
-
-  const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('username');
-    router.push('/login');
-  };
+  const { logout } = useAuth();
 
   return (
     <div className="bg-white">
@@ -125,7 +119,7 @@ export default function SettingsPage() {
       {/* Logout */}
       <div className="mt-6 pb-24 px-4">
         <button 
-          onClick={handleLogout}
+          onClick={logout}
           className="flex items-center gap-3 w-full px-4 py-3 bg-red-50 hover:bg-red-100 rounded-xl text-red-500 transition-colors"
         >
           <LogOut className="w-6 h-6" />

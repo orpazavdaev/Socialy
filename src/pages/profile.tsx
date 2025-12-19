@@ -1,11 +1,28 @@
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Settings, Grid3X3, UserSquare } from 'lucide-react';
 import Avatar from '@/components/shared/Avatar';
 import Button from '@/components/shared/Button';
 import StoryHighlight from '@/components/profile/StoryHighlight';
 import PostsGrid from '@/components/profile/PostsGrid';
+import { useAuth } from '@/context/AuthContext';
+import { useApi } from '@/hooks/useApi';
 
-const profileData = {
+interface UserProfile {
+  id: string;
+  username: string;
+  fullName: string;
+  bio: string;
+  avatar: string;
+  postsCount: number;
+  followersCount: number;
+  followingCount: number;
+  posts: Array<{ id: string; image: string }>;
+  highlights: Array<{ id: string; name: string; image: string }>;
+}
+
+// Fallback data
+const fallbackProfile = {
   username: 'orpaz_avdaev',
   fullName: 'orpaz_avdaev',
   avatar: 'https://i.pravatar.cc/150?img=33',
@@ -17,32 +34,61 @@ Diam massa at fringilla donec. Orci odio ac aliquam sit proin nulla elit ut tell
   following: 154,
 };
 
-const highlights = [
-  { id: 0, name: 'New', isNew: true },
-  { id: 1, name: 'Me', image: 'https://i.pravatar.cc/150?img=33' },
-  { id: 2, name: 'Food', image: 'https://picsum.photos/seed/food/150/150' },
-  { id: 3, name: 'Life', image: 'https://picsum.photos/seed/life/150/150' },
-  { id: 4, name: 'Sea', image: 'https://picsum.photos/seed/sea/150/150' },
-  { id: 5, name: 'Travel', image: 'https://picsum.photos/seed/travel/150/150' },
-  { id: 6, name: 'Friends', image: 'https://picsum.photos/seed/friends/150/150' },
-  { id: 7, name: 'Music', image: 'https://picsum.photos/seed/music/150/150' },
+const fallbackHighlights = [
+  { id: '0', name: 'New', isNew: true },
+  { id: '1', name: 'Me', image: 'https://i.pravatar.cc/150?img=33' },
+  { id: '2', name: 'Food', image: 'https://picsum.photos/seed/food/150/150' },
+  { id: '3', name: 'Life', image: 'https://picsum.photos/seed/life/150/150' },
+  { id: '4', name: 'Sea', image: 'https://picsum.photos/seed/sea/150/150' },
+  { id: '5', name: 'Travel', image: 'https://picsum.photos/seed/travel/150/150' },
+  { id: '6', name: 'Friends', image: 'https://picsum.photos/seed/friends/150/150' },
+  { id: '7', name: 'Music', image: 'https://picsum.photos/seed/music/150/150' },
 ];
 
-const posts = [
-  { id: 1, image: 'https://picsum.photos/seed/bird1/400/400' },
-  { id: 2, image: 'https://picsum.photos/seed/cat1/400/400' },
-  { id: 3, image: 'https://picsum.photos/seed/turtle1/400/400' },
-  { id: 4, image: 'https://picsum.photos/seed/bird2/400/400' },
-  { id: 5, image: 'https://picsum.photos/seed/fish1/400/400' },
-  { id: 6, image: 'https://picsum.photos/seed/bird3/400/400' },
-  { id: 7, image: 'https://picsum.photos/seed/bird4/400/400' },
-  { id: 8, image: 'https://picsum.photos/seed/hamster1/400/400' },
-  { id: 9, image: 'https://picsum.photos/seed/bird5/400/400' },
+const fallbackPosts = [
+  { id: '1', image: 'https://picsum.photos/seed/bird1/400/400' },
+  { id: '2', image: 'https://picsum.photos/seed/cat1/400/400' },
+  { id: '3', image: 'https://picsum.photos/seed/turtle1/400/400' },
+  { id: '4', image: 'https://picsum.photos/seed/bird2/400/400' },
+  { id: '5', image: 'https://picsum.photos/seed/fish1/400/400' },
+  { id: '6', image: 'https://picsum.photos/seed/bird3/400/400' },
+  { id: '7', image: 'https://picsum.photos/seed/bird4/400/400' },
+  { id: '8', image: 'https://picsum.photos/seed/hamster1/400/400' },
+  { id: '9', image: 'https://picsum.photos/seed/bird5/400/400' },
 ];
 
 export default function ProfilePage() {
+  const { user } = useAuth();
+  const { get } = useApi();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [useFallback, setUseFallback] = useState(false);
+
+  useEffect(() => {
+    loadProfile();
+  }, [user]);
+
+  const loadProfile = async () => {
+    if (!user?.username) {
+      setUseFallback(true);
+      return;
+    }
+
+    const data = await get<UserProfile>(`/api/users/${user.username}`);
+    if (data) {
+      setProfile(data);
+    } else {
+      setUseFallback(true);
+    }
+  };
+
+  const profileData = profile || fallbackProfile;
+  const highlights = profile?.highlights?.length 
+    ? [{ id: '0', name: 'New', isNew: true }, ...profile.highlights.map(h => ({ ...h, isNew: false }))]
+    : fallbackHighlights;
+  const posts = profile?.posts?.length ? profile.posts : fallbackPosts;
+
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-white">
       {/* Header */}
       <div className="flex items-center justify-end px-4 py-3">
         <Link href="/settings" className="p-2">
@@ -54,18 +100,28 @@ export default function ProfilePage() {
       <div className="px-4 pb-4">
         {/* Avatar and Stats */}
         <div className="flex items-center gap-6 mb-4">
-          <Avatar src={profileData.avatar} size="xxl" hasStory />
+          <Avatar 
+            src={profile?.avatar || fallbackProfile.avatar} 
+            size="xxl" 
+            hasStory 
+          />
           <div className="flex-1 flex justify-around">
             <div className="text-center">
-              <p className="font-semibold text-lg">{profileData.posts}</p>
+              <p className="font-semibold text-lg">
+                {profile?.postsCount ?? fallbackProfile.posts}
+              </p>
               <p className="text-sm text-gray-500">Posts</p>
             </div>
             <div className="text-center">
-              <p className="font-semibold text-lg">{profileData.followers}</p>
+              <p className="font-semibold text-lg">
+                {profile?.followersCount ?? fallbackProfile.followers}
+              </p>
               <p className="text-sm text-gray-500">Followers</p>
             </div>
             <div className="text-center">
-              <p className="font-semibold text-lg">{profileData.following}</p>
+              <p className="font-semibold text-lg">
+                {profile?.followingCount ?? fallbackProfile.following}
+              </p>
               <p className="text-sm text-gray-500">Following</p>
             </div>
           </div>
@@ -73,8 +129,12 @@ export default function ProfilePage() {
 
         {/* Name and Bio */}
         <div className="mb-4">
-          <p className="font-semibold">{profileData.fullName}</p>
-          <p className="text-sm text-gray-700 whitespace-pre-line">{profileData.bio}</p>
+          <p className="font-semibold">
+            {profile?.fullName || fallbackProfile.fullName}
+          </p>
+          <p className="text-sm text-gray-700 whitespace-pre-line">
+            {profile?.bio || fallbackProfile.bio}
+          </p>
         </div>
 
         {/* Action Buttons */}
@@ -106,4 +166,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-

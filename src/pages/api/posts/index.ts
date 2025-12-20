@@ -13,7 +13,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 async function getPosts(req: NextApiRequest, res: NextApiResponse) {
   try {
+    const payload = getUserFromRequest(req);
+    const currentUserId = payload?.userId;
+
+    // Get IDs of users the current user follows (plus own posts)
+    let followedUserIds: string[] = [];
+    if (currentUserId) {
+      const follows = await prisma.follow.findMany({
+        where: { followerId: currentUserId },
+        select: { followingId: true },
+      });
+      followedUserIds = follows.map(f => f.followingId);
+      // Include own posts
+      followedUserIds.push(currentUserId);
+    }
+
     const posts = await prisma.post.findMany({
+      where: currentUserId && followedUserIds.length > 0 ? {
+        userId: { in: followedUserIds },
+      } : {},
       orderBy: { createdAt: 'desc' },
       include: {
         user: {

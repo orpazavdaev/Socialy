@@ -333,7 +333,7 @@ export default function StoryPage() {
     const storyIdx = currentStoryIndexRef.current;
     
     const currentGroup = groups[groupIdx];
-    if (!currentGroup || currentGroup.isOwnStories) return;
+    if (!currentGroup) return;
     
     const currentStory = currentGroup.stories[storyIdx];
     if (!currentStory || viewedStoriesRef.current.has(currentStory.id)) return;

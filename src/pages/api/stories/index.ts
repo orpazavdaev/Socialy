@@ -29,6 +29,11 @@ async function getStories(req: NextApiRequest, res: NextApiResponse) {
       followedUserIds = follows.map(f => f.followingId);
       // Also include the current user's own stories
       followedUserIds.push(currentUserId);
+      
+      console.log('Stories API - currentUserId:', currentUserId);
+      console.log('Stories API - followedUserIds:', followedUserIds);
+    } else {
+      console.log('Stories API - No currentUserId, showing all stories');
     }
 
     const stories = await prisma.story.findMany({
@@ -37,7 +42,7 @@ async function getStories(req: NextApiRequest, res: NextApiResponse) {
           gte: oneDayAgo,
         },
         // Only get stories from followed users (if logged in)
-        ...(currentUserId && followedUserIds.length > 0 ? {
+        ...(currentUserId ? {
           userId: { in: followedUserIds },
         } : {}),
       },

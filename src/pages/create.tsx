@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { X, ChevronRight, Camera, Image as ImageIcon, Film, Upload, FolderOpen } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
+import { clearHomeCache } from './index';
 
 type CreateType = 'POST' | 'STORY' | 'REEL';
 
@@ -97,6 +98,7 @@ export default function CreatePage() {
       });
 
       if (result) {
+        clearHomeCache(); // Clear cache so new post appears
         router.push('/');
       } else {
         setError('Failed to create post');
@@ -107,6 +109,7 @@ export default function CreatePage() {
       });
 
       if (result) {
+        clearHomeCache(); // Clear cache so new story appears
         router.push('/');
       } else {
         setError('Failed to create story');

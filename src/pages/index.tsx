@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal } from 'lucide-react';
@@ -20,16 +20,19 @@ interface Post {
   likedByUser: string[];
 }
 
+interface Story {
+  id: string;
+  image: string;
+  isViewed?: boolean;
+}
+
 interface StoryGroup {
   user: {
     id: string;
     username: string;
     avatar: string;
   };
-  stories: Array<{
-    id: string;
-    image: string;
-  }>;
+  stories: Story[];
   allViewed?: boolean;
 }
 
@@ -71,6 +74,12 @@ function PostSkeleton() {
 let cachedPosts: Post[] | null = null;
 let cachedStories: StoryGroup[] | null = null;
 
+// Function to clear cache (call after creating new content)
+export function clearHomeCache() {
+  cachedPosts = null;
+  cachedStories = null;
+}
+
 // Function to mark a story as viewed in cache
 export function markStoryAsViewedInCache(storyId: string, userId: string) {
   if (!cachedStories) return;
@@ -80,7 +89,7 @@ export function markStoryAsViewedInCache(storyId: string, userId: string) {
       const updatedStories = group.stories.map(s => 
         s.id === storyId ? { ...s, isViewed: true } : s
       );
-      const allViewed = updatedStories.every(s => (s as any).isViewed);
+      const allViewed = updatedStories.every(s => s.isViewed);
       return { ...group, stories: updatedStories, allViewed };
     }
     return group;
@@ -102,26 +111,27 @@ export default function Home() {
   const [stories, setStories] = useState<StoryGroup[]>(cachedStories ? sortStories(cachedStories) : []);
   const [isLoading, setIsLoading] = useState(!cachedPosts);
 
-  useEffect(() => {
-    // Only load if no cached data
-    if (!cachedPosts) {
-      loadData();
-    } else {
-      // Refresh from cache (in case stories were viewed)
-      if (cachedStories) {
-        setStories(sortStories(cachedStories));
-      }
+  const refreshFromCache = useCallback(() => {
+    if (cachedStories) {
+      setStories(sortStories(cachedStories));
+    }
+    if (cachedPosts) {
+      setPosts(cachedPosts);
     }
   }, []);
 
-  const loadData = async (forceRefresh = false) => {
-    if (!forceRefresh && cachedPosts && cachedStories) {
-      setPosts(cachedPosts);
-      setStories(cachedStories);
+  useEffect(() => {
+    // Only load if no cached data
+    if (!cachedPosts || !cachedStories) {
+      loadData();
+    } else {
+      // Refresh from cache (in case stories were viewed)
+      refreshFromCache();
       setIsLoading(false);
-      return;
     }
+  }, [refreshFromCache]);
 
+  const loadData = async () => {
     setIsLoading(true);
     const [postsData, storiesData] = await Promise.all([
       get<Post[]>('/api/posts'),
@@ -239,8 +249,8 @@ export default function Home() {
                 {/* Post Header */}
                 <div className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <Link href={`/story?userId=${post.user.id}`}>
-                      <Avatar src={post.user.avatar || 'https://i.pravatar.cc/150'} alt={post.user.username} size="sm" hasStory />
+                    <Link href={`/profile/${post.user.username}`}>
+                      <Avatar src={post.user.avatar || 'https://i.pravatar.cc/150'} alt={post.user.username} size="sm" />
                     </Link>
                     <span className="font-semibold text-sm">{post.user.username}</span>
                   </div>

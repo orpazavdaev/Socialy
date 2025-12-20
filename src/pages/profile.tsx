@@ -172,14 +172,14 @@ export default function ProfilePage() {
                   <p className="font-semibold text-lg">{profile.postsCount}</p>
                   <p className="text-sm text-gray-500">Posts</p>
                 </div>
-                <div className="text-center">
+                <Link href={`/followers/${profile.username}`} className="text-center">
                   <p className="font-semibold text-lg">{profile.followersCount}</p>
                   <p className="text-sm text-gray-500">Followers</p>
-                </div>
-                <div className="text-center">
+                </Link>
+                <Link href={`/following/${profile.username}`} className="text-center">
                   <p className="font-semibold text-lg">{profile.followingCount}</p>
                   <p className="text-sm text-gray-500">Following</p>
-                </div>
+                </Link>
               </div>
             </div>
 

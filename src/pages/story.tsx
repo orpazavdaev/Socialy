@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
-import { X, MoreHorizontal, Send, Heart, VolumeX, Music } from 'lucide-react';
+import { X, MoreHorizontal, Send, Heart, VolumeX, Volume2, Music } from 'lucide-react';
 import Avatar from '@/components/shared/Avatar';
 import { useApi } from '@/hooks/useApi';
 import { markStoryAsViewedInCache } from './index';
@@ -22,7 +22,10 @@ interface StoryGroup {
   };
   stories: Story[];
   allViewed: boolean;
+  isOwnStories?: boolean;
 }
+
+const STORY_DURATION = 5000; // 5 seconds for images
 
 function getTimeAgo(date: string): string {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
@@ -33,9 +36,14 @@ function getTimeAgo(date: string): string {
   return `${Math.floor(seconds / 86400)}d`;
 }
 
+// Check if URL is a video
+function isVideoUrl(url: string): boolean {
+  return url.includes('.mp4') || url.includes('.webm') || url.includes('.mov') || url.includes('.ogg');
+}
+
 export default function StoryPage() {
   const router = useRouter();
-  const { userId } = router.query;
+  const { userId, viewedMode } = router.query; // viewedMode indicates if user clicked on viewed stories
   const { get, post } = useApi();
   
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>([]);
@@ -44,6 +52,9 @@ export default function StoryPage() {
   const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [likedStories, setLikedStories] = useState<Set<string>>(new Set());
+  const [isMuted, setIsMuted] = useState(true);
+  const [videoDuration, setVideoDuration] = useState<number | null>(null);
+  const [startedViewingViewed, setStartedViewingViewed] = useState(false);
   
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const viewedStoriesRef = useRef<Set<string>>(new Set());
@@ -51,6 +62,8 @@ export default function StoryPage() {
   const currentGroupIndexRef = useRef(0);
   const currentStoryIndexRef = useRef(0);
   const isNavigatingRef = useRef(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const startedViewingViewedRef = useRef(false);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -92,6 +105,7 @@ export default function StoryPage() {
     isNavigatingRef.current = true;
     
     clearTimer();
+    setVideoDuration(null);
     
     const groups = storyGroupsRef.current;
     const groupIdx = currentGroupIndexRef.current;
@@ -104,36 +118,73 @@ export default function StoryPage() {
       return;
     }
 
-    // Find next unviewed story in current group
-    const nextUnviewedInGroup = currentGroup.stories.findIndex(
-      (s, idx) => idx > storyIdx && !s.isViewed
-    );
-
-    if (nextUnviewedInGroup !== -1) {
-      setCurrentStoryIndex(nextUnviewedInGroup);
-    } else if (storyIdx < currentGroup.stories.length - 1) {
-      setCurrentStoryIndex(storyIdx + 1);
-    } else {
-      // Find next user with unviewed stories
-      const nextGroupWithUnviewed = groups.findIndex(
-        (g, idx) => idx > groupIdx && !g.allViewed
-      );
-
-      if (nextGroupWithUnviewed !== -1) {
-        const firstUnviewed = groups[nextGroupWithUnviewed].stories.findIndex(s => !s.isViewed);
-        setCurrentGroupIndex(nextGroupWithUnviewed);
-        setCurrentStoryIndex(firstUnviewed !== -1 ? firstUnviewed : 0);
-      } else if (groupIdx < groups.length - 1) {
-        setCurrentGroupIndex(groupIdx + 1);
-        setCurrentStoryIndex(0);
+    // Own stories: go through all sequentially, then go home
+    if (currentGroup.isOwnStories) {
+      if (storyIdx < currentGroup.stories.length - 1) {
+        setCurrentStoryIndex(storyIdx + 1);
       } else {
+        // Finished own stories, go home
         isNavigatingRef.current = false;
         router.push('/');
         return;
       }
+      setTimeout(() => {
+        isNavigatingRef.current = false;
+      }, 100);
+      return;
+    }
+
+    // If we started viewing someone with all viewed stories, stay in "viewed mode"
+    const inViewedMode = startedViewingViewedRef.current;
+
+    if (inViewedMode) {
+      // In viewed mode: just go through all stories sequentially
+      if (storyIdx < currentGroup.stories.length - 1) {
+        setCurrentStoryIndex(storyIdx + 1);
+      } else {
+        // Find next user who also has all stories viewed (excluding own stories)
+        const nextViewedGroup = groups.findIndex(
+          (g, idx) => idx > groupIdx && g.allViewed && !g.isOwnStories
+        );
+        
+        if (nextViewedGroup !== -1) {
+          setCurrentGroupIndex(nextViewedGroup);
+          setCurrentStoryIndex(0);
+        } else {
+          // No more viewed groups, go home
+          isNavigatingRef.current = false;
+          router.push('/');
+          return;
+        }
+      }
+    } else {
+      // Not in viewed mode: prioritize unviewed stories
+      // Find next unviewed story in current group
+      const nextUnviewedInGroup = currentGroup.stories.findIndex(
+        (s, idx) => idx > storyIdx && !s.isViewed
+      );
+
+      if (nextUnviewedInGroup !== -1) {
+        setCurrentStoryIndex(nextUnviewedInGroup);
+      } else {
+        // No more unviewed in this group, find next user with unviewed stories (excluding own)
+        const nextGroupWithUnviewed = groups.findIndex(
+          (g, idx) => idx > groupIdx && !g.allViewed && !g.isOwnStories
+        );
+
+        if (nextGroupWithUnviewed !== -1) {
+          const firstUnviewed = groups[nextGroupWithUnviewed].stories.findIndex(s => !s.isViewed);
+          setCurrentGroupIndex(nextGroupWithUnviewed);
+          setCurrentStoryIndex(firstUnviewed !== -1 ? firstUnviewed : 0);
+        } else {
+          // No more unviewed stories, go home
+          isNavigatingRef.current = false;
+          router.push('/');
+          return;
+        }
+      }
     }
     
-    // Small delay before allowing next navigation
     setTimeout(() => {
       isNavigatingRef.current = false;
     }, 100);
@@ -144,6 +195,7 @@ export default function StoryPage() {
     isNavigatingRef.current = true;
     
     clearTimer();
+    setVideoDuration(null);
     
     const groups = storyGroupsRef.current;
     const groupIdx = currentGroupIndexRef.current;
@@ -162,9 +214,11 @@ export default function StoryPage() {
     }, 100);
   }, [clearTimer]);
 
-  const startProgress = useCallback(() => {
+  const startProgress = useCallback((duration: number = STORY_DURATION) => {
     clearTimer();
     setProgress(0);
+    
+    const increment = 100 / (duration / 25); // 25ms intervals
     
     intervalRef.current = setInterval(() => {
       setProgress((prev) => {
@@ -172,7 +226,7 @@ export default function StoryPage() {
           goToNextStory();
           return 100;
         }
-        return prev + 0.5;
+        return prev + increment;
       });
     }, 25);
   }, [clearTimer, goToNextStory]);
@@ -190,6 +244,18 @@ export default function StoryPage() {
     
     viewedStoriesRef.current.add(currentStory.id);
     
+    // Update local state
+    setStoryGroups(prev => prev.map((group, gIdx) => {
+      if (gIdx === groupIdx) {
+        const updatedStories = group.stories.map((s, sIdx) => 
+          sIdx === storyIdx ? { ...s, isViewed: true } : s
+        );
+        const allViewed = updatedStories.every(s => s.isViewed);
+        return { ...group, stories: updatedStories, allViewed };
+      }
+      return group;
+    }));
+    
     // Update the home page cache
     markStoryAsViewedInCache(currentStory.id, currentGroup.user.id);
     
@@ -197,20 +263,22 @@ export default function StoryPage() {
     post(`/api/stories/${currentStory.id}/view`, {});
   }, [post]);
 
+  const handleVideoLoaded = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+    const duration = video.duration * 1000; // Convert to milliseconds
+    setVideoDuration(duration);
+    startProgress(duration);
+    video.play();
+  }, [startProgress]);
+
   // Load stories on mount
   useEffect(() => {
     const loadStories = async () => {
       setIsLoading(true);
       const data = await get<StoryGroup[]>('/api/stories');
       if (data && data.length > 0) {
-        // Sort: users with unviewed stories first
-        const sorted = [...data].sort((a, b) => {
-          if (a.allViewed && !b.allViewed) return 1;
-          if (!a.allViewed && b.allViewed) return -1;
-          return 0;
-        });
-        setStoryGroups(sorted);
-        storyGroupsRef.current = sorted;
+        setStoryGroups(data);
+        storyGroupsRef.current = data;
       }
       setIsLoading(false);
     };
@@ -227,9 +295,29 @@ export default function StoryPage() {
     if (userId && storyGroups.length > 0 && !isLoading) {
       const groupIndex = storyGroups.findIndex(g => g.user.id === userId);
       if (groupIndex !== -1) {
+        const group = storyGroups[groupIndex];
         setCurrentGroupIndex(groupIndex);
-        const firstUnviewedIndex = storyGroups[groupIndex].stories.findIndex(s => !s.isViewed);
-        setCurrentStoryIndex(firstUnviewedIndex !== -1 ? firstUnviewedIndex : 0);
+        
+        // Own stories: treat as "viewed mode" - show all from beginning
+        if (group.isOwnStories) {
+          setStartedViewingViewed(true);
+          startedViewingViewedRef.current = true;
+          setCurrentStoryIndex(0);
+        }
+        // Other user's stories that are all viewed
+        else if (group.allViewed) {
+          setStartedViewingViewed(true);
+          startedViewingViewedRef.current = true;
+          setCurrentStoryIndex(0);
+        }
+        // Other user's stories with unviewed content
+        else {
+          setStartedViewingViewed(false);
+          startedViewingViewedRef.current = false;
+          // Find first unviewed story
+          const firstUnviewedIndex = group.stories.findIndex(s => !s.isViewed);
+          setCurrentStoryIndex(firstUnviewedIndex !== -1 ? firstUnviewedIndex : 0);
+        }
       }
     }
   }, [userId, storyGroups.length, isLoading]);
@@ -237,7 +325,15 @@ export default function StoryPage() {
   // Start progress timer when story changes
   useEffect(() => {
     if (storyGroups.length > 0 && !isLoading) {
-      startProgress();
+      const currentGroup = storyGroups[currentGroupIndex];
+      const currentStory = currentGroup?.stories[currentStoryIndex];
+      
+      if (currentStory && !isVideoUrl(currentStory.image)) {
+        // For images, use fixed 5 second duration
+        startProgress(STORY_DURATION);
+      }
+      // For videos, startProgress will be called when video loads
+      
       markCurrentStoryAsViewed();
     }
     
@@ -259,7 +355,7 @@ export default function StoryPage() {
   if (isLoading) {
     return (
       <div className="fixed inset-0 bg-black z-[100] flex items-center justify-center">
-        <p className="text-white">Loading...</p>
+        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -290,6 +386,7 @@ export default function StoryPage() {
 
   const { user } = currentGroup;
   const time = getTimeAgo(currentStory.createdAt);
+  const isVideo = isVideoUrl(currentStory.image);
 
   return (
     <div
@@ -313,13 +410,24 @@ export default function StoryPage() {
 
       {/* Story Content */}
       <div className="relative flex-1 flex items-center justify-center">
-        <Image
-          src={currentStory.image}
-          alt={`Story by ${user.username}`}
-          fill
-          className="object-contain"
-          priority
-        />
+        {isVideo ? (
+          <video
+            ref={videoRef}
+            src={currentStory.image}
+            className="w-full h-full object-contain"
+            muted={isMuted}
+            playsInline
+            onLoadedMetadata={handleVideoLoaded}
+          />
+        ) : (
+          <Image
+            src={currentStory.image}
+            alt={`Story by ${user.username}`}
+            fill
+            className="object-contain"
+            priority
+          />
+        )}
 
         {/* Dark gradient overlay for text readability */}
         <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-black/70 to-transparent z-0" />
@@ -341,9 +449,17 @@ export default function StoryPage() {
             <button onClick={(e) => e.stopPropagation()} className="p-1 text-white">
               <MoreHorizontal className="w-6 h-6" />
             </button>
-            <button onClick={(e) => e.stopPropagation()} className="p-1 text-white">
-              <VolumeX className="w-6 h-6" />
-            </button>
+            {isVideo && (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMuted(!isMuted);
+                }} 
+                className="p-1 text-white"
+              >
+                {isMuted ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
+              </button>
+            )}
           </div>
           
           {/* Right side - user info */}
@@ -353,10 +469,12 @@ export default function StoryPage() {
                 <span className="text-white/70 text-xs">{time}</span>
                 <span className="text-white font-semibold text-sm">{user.username}</span>
               </div>
-              <div className="flex items-center gap-1 text-white/70 text-xs">
-                <span>BTS · Black Swan</span>
-                <Music className="w-3 h-3" />
-              </div>
+              {currentStory.music && (
+                <div className="flex items-center gap-1 text-white/70 text-xs">
+                  <span>{currentStory.music}</span>
+                  <Music className="w-3 h-3" />
+                </div>
+              )}
             </div>
             <Avatar src={user.avatar || 'https://i.pravatar.cc/150'} alt={user.username} size="sm" />
           </div>

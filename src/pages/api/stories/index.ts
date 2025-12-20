@@ -60,19 +60,18 @@ async function getStories(req: NextApiRequest, res: NextApiResponse) {
     // Group stories by user
     const groupedStories = stories.reduce((acc, story) => {
       const userId = story.user.id;
+      const isOwnStory = userId === currentUserId;
+      
       if (!acc[userId]) {
         acc[userId] = {
           user: story.user,
           stories: [],
-          isOwnStories: userId === currentUserId,
+          isOwnStories: isOwnStory,
         };
       }
       
-      // Add isViewed flag
-      // For own stories: mark as viewed so they don't interfere with navigation
-      // For other users' stories: check if actually viewed
-      const isOwnStory = userId === currentUserId;
-      const isViewed = isOwnStory ? true : (currentUserId && story.views ? story.views.length > 0 : false);
+      // isViewed is based on actual view records for ALL users (including own stories)
+      const isViewed = currentUserId && story.views ? story.views.length > 0 : false;
       
       acc[userId].stories.push({
         id: story.id,
@@ -90,16 +89,24 @@ async function getStories(req: NextApiRequest, res: NextApiResponse) {
     }>);
 
     // Convert to array and add allViewed flag
-    // Own stories: allViewed = false so the border is purple (active story indicator)
-    const result = Object.values(groupedStories).map(group => ({
-      user: group.user,
-      stories: group.stories,
-      allViewed: group.isOwnStories ? false : group.stories.every(s => s.isViewed),
-      isOwnStories: group.isOwnStories,
-    }));
+    const result = Object.values(groupedStories).map(group => {
+      const allStoriesViewed = group.stories.every(s => s.isViewed);
+      return {
+        user: group.user,
+        stories: group.stories,
+        // For own stories: allViewed should be false if there are any unviewed (so border is purple)
+        // For others: allViewed based on actual view status
+        allViewed: allStoriesViewed,
+        isOwnStories: group.isOwnStories,
+      };
+    });
 
-    // Sort: unviewed first, then viewed
+    // Sort: own stories first, then unviewed, then viewed
     result.sort((a, b) => {
+      // Own stories always first
+      if (a.isOwnStories && !b.isOwnStories) return -1;
+      if (!a.isOwnStories && b.isOwnStories) return 1;
+      // Then unviewed before viewed
       if (a.allViewed && !b.allViewed) return 1;
       if (!a.allViewed && b.allViewed) return -1;
       return 0;

@@ -29,11 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Story not found' });
     }
 
-    // Don't track views on own stories
-    if (story.userId === payload.userId) {
-      return res.status(200).json({ viewed: true });
-    }
-
+    // Track views on all stories (including own stories for border color)
     // Create or update view
     await prisma.storyView.upsert({
       where: {

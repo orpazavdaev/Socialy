@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Plus } from 'lucide-react';
 import Avatar from '@/components/shared/Avatar';
 import { useApi } from '@/hooks/useApi';
+import { useAuth } from '@/context/AuthContext';
 
 interface Post {
   id: string;
@@ -34,6 +35,7 @@ interface StoryGroup {
   };
   stories: Story[];
   allViewed?: boolean;
+  isOwnStories?: boolean;
 }
 
 // Skeleton Components
@@ -96,9 +98,13 @@ export function markStoryAsViewedInCache(storyId: string, userId: string) {
   });
 }
 
-// Sort stories: unviewed first, then viewed
+// Sort stories: own first, then unviewed, then viewed
 function sortStories(storyGroups: StoryGroup[]): StoryGroup[] {
   return [...storyGroups].sort((a, b) => {
+    // Own stories always first
+    if (a.isOwnStories && !b.isOwnStories) return -1;
+    if (!a.isOwnStories && b.isOwnStories) return 1;
+    // Then unviewed before viewed
     if (a.allViewed && !b.allViewed) return 1;
     if (!a.allViewed && b.allViewed) return -1;
     return 0;
@@ -107,18 +113,23 @@ function sortStories(storyGroups: StoryGroup[]): StoryGroup[] {
 
 export default function Home() {
   const { get, post: apiPost } = useApi();
+  const { user: currentUser } = useAuth();
   const [posts, setPosts] = useState<Post[]>(cachedPosts || []);
   const [stories, setStories] = useState<StoryGroup[]>(cachedStories ? sortStories(cachedStories) : []);
   const [isLoading, setIsLoading] = useState(!cachedPosts);
+  const [myStory, setMyStory] = useState<StoryGroup | null>(null);
 
   const refreshFromCache = useCallback(() => {
     if (cachedStories) {
-      setStories(sortStories(cachedStories));
+      const myStories = cachedStories.find(g => g.user.id === currentUser?.id);
+      const otherStories = cachedStories.filter(g => g.user.id !== currentUser?.id);
+      setMyStory(myStories || null);
+      setStories(sortStories(otherStories));
     }
     if (cachedPosts) {
       setPosts(cachedPosts);
     }
-  }, []);
+  }, [currentUser?.id]);
 
   useEffect(() => {
     // Only load if no cached data
@@ -144,7 +155,12 @@ export default function Home() {
     }
 
     if (storiesData) {
-      const sorted = sortStories(storiesData);
+      // Separate own stories from others
+      const myStories = storiesData.find(g => g.user.id === currentUser?.id);
+      const otherStories = storiesData.filter(g => g.user.id !== currentUser?.id);
+      const sorted = sortStories(otherStories);
+      
+      setMyStory(myStories || null);
       setStories(sorted);
       cachedStories = storiesData;
     }
@@ -198,7 +214,7 @@ export default function Home() {
       </div>
 
       {/* Stories */}
-      <div className="flex gap-4 overflow-x-auto hide-scrollbar px-4 py-3 border-b border-gray-100">
+      <div className="flex gap-3 overflow-x-auto hide-scrollbar px-4 py-3 border-b border-gray-100">
         {isLoading ? (
           // Skeleton stories
           <>
@@ -208,25 +224,71 @@ export default function Home() {
             <StorySkeleton />
             <StorySkeleton />
           </>
-        ) : stories.length > 0 ? (
-          stories.map((storyGroup) => (
-            <Link
-              key={storyGroup.user.id}
-              href={`/story?userId=${storyGroup.user.id}`}
-              className="flex flex-col items-center gap-1 flex-shrink-0"
-            >
-              <Avatar
-                src={storyGroup.user.avatar || 'https://i.pravatar.cc/150'}
-                alt={storyGroup.user.username}
-                size="lg"
-                hasStory
-                isViewed={storyGroup.allViewed}
-              />
-              <span className="text-xs text-center w-16 truncate">{storyGroup.user.username}</span>
-            </Link>
-          ))
         ) : (
-          <p className="text-gray-400 text-sm py-4">No stories yet</p>
+          <>
+            {/* Your Story - always first */}
+            <div className="flex flex-col items-center gap-1 flex-shrink-0">
+              <div className="relative">
+                {myStory ? (
+                  // Has stories - click to view, with + button to add more
+                  <>
+                    <Link href={`/story?userId=${currentUser?.id}`}>
+                      <Avatar
+                        src={currentUser?.avatar || 'https://i.pravatar.cc/150'}
+                        alt="Your story"
+                        size="lg"
+                        hasStory
+                        isViewed={myStory.allViewed}
+                      />
+                    </Link>
+                    <Link 
+                      href="/create"
+                      className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center border-2 border-white"
+                    >
+                      <Plus className="w-3 h-3 text-white" />
+                    </Link>
+                  </>
+                ) : (
+                  // No stories - click to add
+                  <Link href="/create">
+                    <div className="relative">
+                      <Avatar
+                        src={currentUser?.avatar || 'https://i.pravatar.cc/150'}
+                        alt="Your story"
+                        size="lg"
+                      />
+                      <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center border-2 border-white">
+                        <Plus className="w-3 h-3 text-white" />
+                      </div>
+                    </div>
+                  </Link>
+                )}
+              </div>
+              <span className="text-xs text-center w-16 truncate">Your story</span>
+            </div>
+
+            {/* Other users' stories */}
+            {stories.map((storyGroup) => (
+              <Link
+                key={storyGroup.user.id}
+                href={`/story?userId=${storyGroup.user.id}`}
+                className="flex flex-col items-center gap-1 flex-shrink-0"
+              >
+                <Avatar
+                  src={storyGroup.user.avatar || 'https://i.pravatar.cc/150'}
+                  alt={storyGroup.user.username}
+                  size="lg"
+                  hasStory
+                  isViewed={storyGroup.allViewed}
+                />
+                <span className="text-xs text-center w-16 truncate">{storyGroup.user.username}</span>
+              </Link>
+            ))}
+
+            {stories.length === 0 && !myStory && (
+              <p className="text-gray-400 text-sm py-4 pl-4">No stories yet</p>
+            )}
+          </>
         )}
       </div>
 

@@ -1,8 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '@/lib/prisma';
 import { getUserFromRequest } from '@/lib/auth';
+import { withLogging } from '@/lib/apiHandler';
+import logger from '@/lib/logger';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     return getPosts(req, res);
   } else if (req.method === 'POST') {
@@ -10,6 +12,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   return res.status(405).json({ error: 'Method not allowed' });
 }
+
+export default withLogging(handler);
 
 async function getPosts(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -66,9 +70,10 @@ async function getPosts(req: NextApiRequest, res: NextApiResponse) {
       likedByUser: post.likes.map((like) => like.userId),
     }));
 
+    logger.info('Posts fetched', { metadata: { count: postsWithCounts.length } });
     res.status(200).json(postsWithCounts);
   } catch (error) {
-    console.error('Get posts error:', error);
+    logger.error('Get posts error', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({ error: 'Internal server error' });
   }
 }

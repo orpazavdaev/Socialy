@@ -10,13 +10,34 @@ import { useApi } from '@/hooks/useApi';
 interface Message {
   id: string;
   text: string;
-  type?: 'text' | 'image' | 'audio';
+  type?: 'text' | 'image' | 'audio' | 'post';
   createdAt: string;
   sender: {
     id: string;
     username: string;
     avatar: string;
   };
+}
+
+interface SharedPost {
+  type: 'shared_post';
+  postId: string;
+  image: string;
+  username: string;
+  caption: string;
+}
+
+// Helper to parse shared post
+function parseSharedPost(text: string): SharedPost | null {
+  try {
+    const data = JSON.parse(text);
+    if (data.type === 'shared_post') {
+      return data as SharedPost;
+    }
+  } catch {
+    // Not a shared post
+  }
+  return null;
 }
 
 interface UserInfo {
@@ -443,45 +464,74 @@ export default function ChatPage() {
                     size="xs" 
                   />
                 )}
-                <div 
-                  className={`max-w-[70%] rounded-3xl ${
-                    message.type === 'image' ? 'p-1' : 'px-4 py-2'
-                  } ${
-                    isOwn 
-                      ? 'bg-blue-500 text-white' 
-                      : 'bg-gray-100 text-gray-900 ml-2'
-                  }`}
-                >
-                  {message.type === 'image' || message.text.startsWith('data:image') ? (
-                    <NextImage
-                      src={message.text}
-                      alt="Shared image"
-                      width={200}
-                      height={200}
-                      className="rounded-2xl object-cover"
-                    />
-                  ) : message.type === 'audio' || message.text.startsWith('data:audio') ? (
-                    <div className="flex items-center gap-3 min-w-[180px] py-1">
-                      {message.text.startsWith('data:audio') ? (
-                        <AudioPlayer src={message.text} isOwn={isOwn} />
+                {(() => {
+                  const sharedPost = parseSharedPost(message.text);
+                  
+                  if (sharedPost) {
+                    // Shared Post
+                    return (
+                      <Link href={`/post/${sharedPost.postId}`} className="block max-w-[250px]">
+                        <div className={`rounded-2xl overflow-hidden border ${isOwn ? 'border-blue-400' : 'border-gray-200'}`}>
+                          <div className="relative aspect-square w-full">
+                            <NextImage
+                              src={sharedPost.image}
+                              alt="Shared post"
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                          <div className={`p-3 ${isOwn ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                            <p className="font-semibold text-sm">@{sharedPost.username}</p>
+                            <p className="text-xs opacity-80 truncate">{sharedPost.caption}</p>
+                            <p className={`text-xs mt-1 ${isOwn ? 'text-blue-200' : 'text-blue-500'}`}>Tap to view post</p>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  }
+                  
+                  return (
+                    <div 
+                      className={`max-w-[70%] rounded-3xl ${
+                        message.type === 'image' || message.text.startsWith('data:image') ? 'p-1' : 'px-4 py-2'
+                      } ${
+                        isOwn 
+                          ? 'bg-blue-500 text-white' 
+                          : 'bg-gray-100 text-gray-900 ml-2'
+                      }`}
+                    >
+                      {message.type === 'image' || message.text.startsWith('data:image') ? (
+                        <NextImage
+                          src={message.text}
+                          alt="Shared image"
+                          width={200}
+                          height={200}
+                          className="rounded-2xl object-cover"
+                        />
+                      ) : message.type === 'audio' || message.text.startsWith('data:audio') ? (
+                        <div className="flex items-center gap-3 min-w-[180px] py-1">
+                          {message.text.startsWith('data:audio') ? (
+                            <AudioPlayer src={message.text} isOwn={isOwn} />
+                          ) : (
+                            <>
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isOwn ? 'bg-blue-400' : 'bg-gray-200'}`}>
+                                <Mic className={`w-5 h-5 ${isOwn ? 'text-white' : 'text-gray-600'}`} />
+                              </div>
+                              <div className="flex-1">
+                                <div className={`h-1 rounded-full ${isOwn ? 'bg-blue-300' : 'bg-gray-300'}`}>
+                                  <div className={`h-1 rounded-full w-1/2 ${isOwn ? 'bg-white' : 'bg-gray-500'}`} />
+                                </div>
+                                <p className={`text-xs mt-1 ${isOwn ? 'text-blue-100' : 'text-gray-500'}`}>Voice message</p>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       ) : (
-                        <>
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isOwn ? 'bg-blue-400' : 'bg-gray-200'}`}>
-                            <Mic className={`w-5 h-5 ${isOwn ? 'text-white' : 'text-gray-600'}`} />
-                          </div>
-                          <div className="flex-1">
-                            <div className={`h-1 rounded-full ${isOwn ? 'bg-blue-300' : 'bg-gray-300'}`}>
-                              <div className={`h-1 rounded-full w-1/2 ${isOwn ? 'bg-white' : 'bg-gray-500'}`} />
-                            </div>
-                            <p className={`text-xs mt-1 ${isOwn ? 'text-blue-100' : 'text-gray-500'}`}>Voice message</p>
-                          </div>
-                        </>
+                        <p className="text-sm">{message.text}</p>
                       )}
                     </div>
-                  ) : (
-                    <p className="text-sm">{message.text}</p>
-                  )}
-                </div>
+                  );
+                })()}
               </div>
             );
           })

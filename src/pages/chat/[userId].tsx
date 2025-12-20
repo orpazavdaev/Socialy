@@ -10,7 +10,7 @@ import { useApi } from '@/hooks/useApi';
 interface Message {
   id: string;
   text: string;
-  type?: 'text' | 'image' | 'audio' | 'post';
+  type?: string;
   createdAt: string;
   sender: {
     id: string;
@@ -27,15 +27,33 @@ interface SharedPost {
   caption: string;
 }
 
-// Helper to parse shared post
-function parseSharedPost(text: string): SharedPost | null {
+interface SharedStory {
+  type: 'shared_story';
+  storyId: string;
+  image: string;
+  username: string;
+}
+
+interface SharedReel {
+  type: 'shared_reel';
+  reelId: string;
+  thumbnail: string;
+  username: string;
+  caption: string;
+}
+
+type SharedContent = SharedPost | SharedStory | SharedReel;
+
+// Helper to parse shared content
+function parseSharedContent(text: string): SharedContent | null {
   try {
     const data = JSON.parse(text);
-    if (data.type === 'shared_post') {
-      return data as SharedPost;
+    console.log('Parsed shared content:', data);
+    if (data.type === 'shared_post' || data.type === 'shared_story' || data.type === 'shared_reel') {
+      return data as SharedContent;
     }
-  } catch {
-    // Not a shared post
+  } catch (e) {
+    // Not shared content - not JSON or parsing error
   }
   return null;
 }
@@ -194,6 +212,7 @@ export default function ChatPage() {
     ]);
     
     if (messagesData) {
+      console.log('Loaded messages:', messagesData);
       setMessages(messagesData);
     }
     if (users) {
@@ -465,29 +484,78 @@ export default function ChatPage() {
                   />
                 )}
                 {(() => {
-                  const sharedPost = parseSharedPost(message.text);
+                  const sharedContent = parseSharedContent(message.text);
                   
-                  if (sharedPost) {
-                    // Shared Post
-                    return (
-                      <Link href={`/post/${sharedPost.postId}`} className="block max-w-[250px]">
-                        <div className={`rounded-2xl overflow-hidden border ${isOwn ? 'border-blue-400' : 'border-gray-200'}`}>
-                          <div className="relative aspect-square w-full">
-                            <NextImage
-                              src={sharedPost.image}
-                              alt="Shared post"
-                              fill
-                              className="object-cover"
-                            />
+                  if (sharedContent) {
+                    if (sharedContent.type === 'shared_post') {
+                      // Shared Post
+                      return (
+                        <Link href={`/post/${sharedContent.postId}`} className="block max-w-[250px]">
+                          <div className={`rounded-2xl overflow-hidden border ${isOwn ? 'border-blue-400' : 'border-gray-200'}`}>
+                            <div className="relative aspect-square w-full">
+                              <NextImage
+                                src={sharedContent.image}
+                                alt="Shared post"
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                            <div className={`p-3 ${isOwn ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                              <p className="font-semibold text-sm">@{sharedContent.username}</p>
+                              <p className="text-xs opacity-80 truncate">{sharedContent.caption}</p>
+                              <p className={`text-xs mt-1 ${isOwn ? 'text-blue-200' : 'text-blue-500'}`}>Tap to view post</p>
+                            </div>
                           </div>
-                          <div className={`p-3 ${isOwn ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'}`}>
-                            <p className="font-semibold text-sm">@{sharedPost.username}</p>
-                            <p className="text-xs opacity-80 truncate">{sharedPost.caption}</p>
-                            <p className={`text-xs mt-1 ${isOwn ? 'text-blue-200' : 'text-blue-500'}`}>Tap to view post</p>
+                        </Link>
+                      );
+                    }
+                    
+                    if (sharedContent.type === 'shared_story') {
+                      // Shared Story
+                      return (
+                        <div className="max-w-[200px]">
+                          <div className={`rounded-2xl overflow-hidden border ${isOwn ? 'border-blue-400' : 'border-gray-200'}`}>
+                            <div className="relative aspect-[9/16] w-full">
+                              <NextImage
+                                src={sharedContent.image}
+                                alt="Shared story"
+                                fill
+                                className="object-cover"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                              <div className="absolute bottom-2 left-2 right-2">
+                                <p className="text-white font-semibold text-sm">@{sharedContent.username}</p>
+                                <p className="text-white/80 text-xs">Story</p>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </Link>
-                    );
+                      );
+                    }
+                    
+                    if (sharedContent.type === 'shared_reel') {
+                      // Shared Reel
+                      return (
+                        <Link href={`/reel/${sharedContent.reelId}`} className="block max-w-[200px]">
+                          <div className={`rounded-2xl overflow-hidden border ${isOwn ? 'border-blue-400' : 'border-gray-200'}`}>
+                            <div className="relative aspect-[9/16] w-full bg-black">
+                              <NextImage
+                                src={sharedContent.thumbnail}
+                                alt="Shared reel"
+                                fill
+                                className="object-cover"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                              <div className="absolute bottom-2 left-2 right-2">
+                                <p className="text-white font-semibold text-sm">@{sharedContent.username}</p>
+                                <p className="text-white/80 text-xs truncate">{sharedContent.caption || 'Reel'}</p>
+                                <p className="text-blue-300 text-xs mt-1">Tap to view reel</p>
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    }
                   }
                   
                   return (

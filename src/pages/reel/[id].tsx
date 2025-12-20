@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import Image from 'next/image';
 import { 
   ArrowLeft, 
   Heart, 
@@ -11,11 +12,19 @@ import {
   Play,
   Volume2,
   VolumeX,
-  X
+  X,
+  Search
 } from 'lucide-react';
 import Avatar from '@/components/shared/Avatar';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
+
+interface ShareUser {
+  id: string;
+  username: string;
+  avatar: string;
+  fullName: string;
+}
 
 interface Comment {
   id: string;
@@ -53,7 +62,8 @@ function ReelItem({
   isMuted, 
   onToggleMute,
   onLike,
-  onOpenComments 
+  onOpenComments,
+  onShare
 }: { 
   reel: Reel; 
   isActive: boolean; 
@@ -61,6 +71,7 @@ function ReelItem({
   onToggleMute: () => void;
   onLike: (reelId: string) => void;
   onOpenComments: (reelId: string) => void;
+  onShare: (reel: Reel) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -143,7 +154,7 @@ function ReelItem({
           <span className="text-white text-xs">{formatCount(reel.commentsCount)}</span>
         </button>
         
-        <button className="flex flex-col items-center gap-1">
+        <button onClick={() => onShare(reel)} className="flex flex-col items-center gap-1">
           <Send className="w-7 h-7 text-white" />
         </button>
         
@@ -191,6 +202,13 @@ export default function ReelPage() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [activeReelId, setActiveReelId] = useState<string | null>(null);
+  
+  // Share modal state
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareUsers, setShareUsers] = useState<ShareUser[]>([]);
+  const [shareSearch, setShareSearch] = useState('');
+  const [sendingTo, setSendingTo] = useState<string | null>(null);
+  const [shareReel, setShareReel] = useState<Reel | null>(null);
   
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -263,6 +281,49 @@ export default function ReelPage() {
     }
   };
 
+  // Open share modal
+  const openShareModal = async (reel: Reel) => {
+    setShareReel(reel);
+    setShowShareModal(true);
+    setShareSearch('');
+    
+    if (shareUsers.length === 0) {
+      const users = await get<ShareUser[]>('/api/users');
+      if (users) {
+        setShareUsers(users.filter(u => u.id !== user?.id));
+      }
+    }
+  };
+
+  // Send reel to user
+  const sendReelToUser = async (targetUserId: string) => {
+    if (!shareReel) return;
+    
+    setSendingTo(targetUserId);
+    
+    const reelData = {
+      type: 'shared_reel',
+      reelId: shareReel.id,
+      thumbnail: shareReel.thumbnail || shareReel.video,
+      username: shareReel.user.username,
+      caption: shareReel.caption,
+    };
+    
+    await post(`/api/messages/${targetUserId}`, {
+      text: JSON.stringify(reelData),
+      type: 'reel',
+    });
+    
+    setSendingTo(null);
+    setShowShareModal(false);
+    setShareReel(null);
+  };
+
+  const filteredShareUsers = shareUsers.filter(u =>
+    u.username.toLowerCase().includes(shareSearch.toLowerCase()) ||
+    u.fullName?.toLowerCase().includes(shareSearch.toLowerCase())
+  );
+
   const getTimeAgo = (date: string): string => {
     const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
     if (seconds < 60) return 'now';
@@ -320,6 +381,7 @@ export default function ReelPage() {
             onToggleMute={() => setIsMuted(!isMuted)}
             onLike={handleLike}
             onOpenComments={handleOpenComments}
+            onShare={openShareModal}
           />
         ))}
       </div>
@@ -388,6 +450,79 @@ export default function ReelPage() {
               >
                 Post
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Modal */}
+      {showShareModal && shareReel && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center">
+          <div className="bg-white w-full max-w-[430px] rounded-t-2xl max-h-[70vh] flex flex-col animate-slide-up">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <span className="font-semibold">Share to...</span>
+              <button onClick={() => { setShowShareModal(false); setShareReel(null); }}>
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Reel Preview */}
+            <div className="flex items-center gap-3 p-4 border-b bg-gray-50">
+              <div className="w-12 h-16 relative rounded overflow-hidden flex-shrink-0 bg-black">
+                <video src={shareReel.video} className="w-full h-full object-cover" muted />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm">@{shareReel.user.username}</p>
+                <p className="text-xs text-gray-500 truncate">{shareReel.caption || 'Reel'}</p>
+              </div>
+            </div>
+
+            {/* Search */}
+            <div className="p-3 border-b">
+              <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2">
+                <Search className="w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search"
+                  value={shareSearch}
+                  onChange={(e) => setShareSearch(e.target.value)}
+                  className="flex-1 bg-transparent text-sm outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Users List */}
+            <div className="flex-1 overflow-y-auto">
+              {filteredShareUsers.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">No users found</p>
+              ) : (
+                filteredShareUsers.map((shareUser) => (
+                  <div 
+                    key={shareUser.id}
+                    className="flex items-center justify-between px-4 py-3 hover:bg-gray-50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar src={shareUser.avatar || 'https://i.pravatar.cc/150'} alt={shareUser.username} size="md" />
+                      <div>
+                        <p className="font-semibold text-sm">{shareUser.username}</p>
+                        <p className="text-xs text-gray-500">{shareUser.fullName}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => sendReelToUser(shareUser.id)}
+                      disabled={sendingTo === shareUser.id}
+                      className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                        sendingTo === shareUser.id
+                          ? 'bg-gray-200 text-gray-500'
+                          : 'bg-blue-500 text-white hover:bg-blue-600'
+                      }`}
+                    >
+                      {sendingTo === shareUser.id ? 'Sent!' : 'Send'}
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

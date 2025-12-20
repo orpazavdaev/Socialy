@@ -38,10 +38,12 @@ function getTimeAgo(date: string): string {
 function formatMessagePreview(text: string): string {
   if (text.startsWith('data:audio')) return '🎤 Voice message';
   if (text.startsWith('data:image')) return '📷 Photo';
-  // Check for shared post
+  // Check for shared content
   try {
     const data = JSON.parse(text);
     if (data.type === 'shared_post') return '📸 Shared a post';
+    if (data.type === 'shared_story') return '📖 Shared a story';
+    if (data.type === 'shared_reel') return '🎬 Shared a reel';
   } catch {
     // Not JSON
   }

@@ -200,7 +200,7 @@ export default function UserProfilePage() {
       {isLoading ? (
         <PostsGridSkeleton />
       ) : profile?.posts && profile.posts.length > 0 ? (
-        <PostsGrid posts={profile.posts} />
+        <PostsGrid posts={profile.posts} username={profile.username} />
       ) : (
         <div className="text-center py-12 text-gray-400">
           <Grid3X3 className="w-12 h-12 mx-auto mb-2" />

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import Link from 'next/link';
-import { X, MoreHorizontal, Send, Heart, Volume2, VolumeX, Pause, Search } from 'lucide-react';
+import { X, MoreHorizontal, Send, Heart, Volume2, VolumeX, Pause, Search, Trash2 } from 'lucide-react';
 import Avatar from '@/components/shared/Avatar';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
@@ -52,7 +52,7 @@ function isVideoUrl(url: string): boolean {
 export default function StoryPage() {
   const router = useRouter();
   const { userId } = router.query;
-  const { get, post } = useApi();
+  const { get, post, del } = useApi();
   const { user: currentUser } = useAuth();
   
   // Story data
@@ -76,6 +76,11 @@ export default function StoryPage() {
   
   // Mode: false = unviewed stories mode, true = viewed stories mode
   const [isViewedMode, setIsViewedMode] = useState(false);
+  
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   
   // Refs for callbacks
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -186,6 +191,40 @@ export default function StoryPage() {
     u.username.toLowerCase().includes(shareSearch.toLowerCase()) ||
     u.fullName?.toLowerCase().includes(shareSearch.toLowerCase())
   );
+
+  // Delete story
+  const handleDeleteStory = async () => {
+    const currentGroup = storyGroups[currentGroupIndex];
+    const currentStory = currentGroup?.stories[currentStoryIndex];
+    if (!currentStory) return;
+    
+    setIsDeleting(true);
+    const result = await del(`/api/stories/${currentStory.id}`);
+    setIsDeleting(false);
+    
+    if (result) {
+      // Remove story from current group
+      const updatedStories = currentGroup.stories.filter(s => s.id !== currentStory.id);
+      
+      if (updatedStories.length === 0) {
+        // No more stories in this group, go back
+        router.push('/');
+      } else {
+        // Update stories and move to previous or stay at current
+        const newGroups = [...storyGroups];
+        newGroups[currentGroupIndex] = { ...currentGroup, stories: updatedStories };
+        setStoryGroups(newGroups);
+        
+        // Move to previous story if we deleted the last one
+        if (currentStoryIndex >= updatedStories.length) {
+          setCurrentStoryIndex(updatedStories.length - 1);
+        }
+        
+        setShowDeleteConfirm(false);
+        setShowMenu(false);
+      }
+    }
+  };
 
   // Timer control
   const clearTimer = useCallback(() => {
@@ -601,6 +640,7 @@ export default function StoryPage() {
   const { user } = currentGroup;
   const time = getTimeAgo(currentStory.createdAt);
   const isVideo = isVideoUrl(currentStory.image);
+  const isOwnStory = currentUser?.id === user.id;
 
   return (
     <div
@@ -675,9 +715,35 @@ export default function StoryPage() {
               {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
             </button>
           )}
-          <button onClick={(e) => e.stopPropagation()} className="p-2 text-white drop-shadow-md">
-            <MoreHorizontal className="w-5 h-5" />
-          </button>
+          {isOwnStory && (
+            <div className="relative">
+              <button 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  setShowMenu(!showMenu);
+                }} 
+                className="p-2 text-white drop-shadow-md"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
+              
+              {showMenu && (
+                <div className="absolute right-0 top-10 bg-white rounded-lg shadow-lg min-w-[150px] z-30">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMenu(false);
+                      setShowDeleteConfirm(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-3 text-red-500"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete Story</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <button onClick={(e) => { e.stopPropagation(); router.push('/'); }} className="p-2 text-white drop-shadow-md">
             <X className="w-5 h-5" />
           </button>
@@ -799,6 +865,40 @@ export default function StoryPage() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div 
+          className="fixed inset-0 bg-black/70 z-[110] flex items-center justify-center p-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="bg-white rounded-xl max-w-sm w-full overflow-hidden">
+            <div className="p-6 text-center">
+              <Trash2 className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Delete Story?</h3>
+              <p className="text-gray-500 text-sm">
+                This action cannot be undone. The story will be permanently deleted.
+              </p>
+            </div>
+            <div className="border-t flex">
+              <button 
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-3 font-semibold text-gray-700 hover:bg-gray-50"
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleDeleteStory}
+                className="flex-1 py-3 font-semibold text-red-500 hover:bg-red-50 border-l"
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
             </div>
           </div>
         </div>

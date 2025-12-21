@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Heart, MessageCircle, Send, Bookmark, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Trash2, X } from 'lucide-react';
 import Avatar from '@/components/shared/Avatar';
 import { useApi } from '@/hooks/useApi';
+import { useAuth } from '@/context/AuthContext';
 
 interface Post {
   id: string;
@@ -67,7 +68,8 @@ function getTimeAgo(date: string): string {
 export default function PostPage() {
   const router = useRouter();
   const { id } = router.query;
-  const { get, post: apiPost } = useApi();
+  const { get, post: apiPost, del } = useApi();
+  const { user } = useAuth();
   
   const [postData, setPostData] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -75,6 +77,10 @@ export default function PostPage() {
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [newComment, setNewComment] = useState('');
+  const [showMenu, setShowMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (id) {
@@ -129,6 +135,34 @@ export default function PostPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!postData) return;
+    
+    setIsDeleting(true);
+    const result = await del(`/api/posts/${postData.id}`);
+    setIsDeleting(false);
+    
+    if (result) {
+      router.push('/profile');
+    }
+  };
+
+  const isOwner = user?.id === postData?.user?.id;
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMenu]);
+
   return (
     <div className="bg-white min-h-screen">
       {/* Header */}
@@ -159,9 +193,28 @@ export default function PostPage() {
                 </Link>
               </div>
             </div>
-            <button className="p-1">
-              <MoreHorizontal className="w-5 h-5 text-gray-700" />
-            </button>
+            {isOwner && (
+              <div className="relative" ref={menuRef}>
+                <button className="p-1" onClick={() => setShowMenu(!showMenu)}>
+                  <MoreHorizontal className="w-5 h-5 text-gray-700" />
+                </button>
+                
+                {showMenu && (
+                  <div className="absolute right-0 top-8 bg-white rounded-lg shadow-lg border z-20 min-w-[150px]">
+                    <button 
+                      onClick={() => {
+                        setShowMenu(false);
+                        setShowDeleteConfirm(true);
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-3 text-red-500 hover:bg-gray-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Post Image */}
@@ -256,6 +309,37 @@ export default function PostPage() {
       ) : (
         <div className="text-center py-12 text-gray-500">
           <p>Post not found</p>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-sm w-full overflow-hidden">
+            <div className="p-6 text-center">
+              <Trash2 className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Delete Post?</h3>
+              <p className="text-gray-500 text-sm">
+                This action cannot be undone. The post will be permanently deleted.
+              </p>
+            </div>
+            <div className="border-t flex">
+              <button 
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-3 font-semibold text-gray-700 hover:bg-gray-50"
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleDelete}
+                className="flex-1 py-3 font-semibold text-red-500 hover:bg-red-50 border-l"
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

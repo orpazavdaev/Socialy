@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { ChevronLeft, Phone, Video, Send, Image as ImageIcon, Mic, Heart, Square } from 'lucide-react';
+import { ChevronLeft, Phone, Video, Send, Image as ImageIcon, Mic, Heart, Square, ImageOff } from 'lucide-react';
 import NextImage from 'next/image';
 import Avatar from '@/components/shared/Avatar';
 import { useAuth } from '@/context/AuthContext';
@@ -43,6 +43,128 @@ interface SharedReel {
 }
 
 type SharedContent = SharedPost | SharedStory | SharedReel;
+
+// Component for Shared Post with error handling
+function SharedPostMessage({ content, isOwn }: { content: SharedPost; isOwn: boolean }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return (
+      <div className={`w-[200px] rounded-2xl overflow-hidden border ${isOwn ? 'border-blue-400' : 'border-gray-200'}`}>
+        <div className="w-[200px] h-[150px] bg-gray-100 flex flex-col items-center justify-center p-4">
+          <ImageOff className="w-10 h-10 text-gray-400 mb-2" />
+          <p className="text-gray-500 text-xs text-center">Post is no longer available</p>
+          <p className="text-gray-400 text-xs mt-1">@{content.username}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Link href={`/post/${content.postId}`} className="block w-[200px]">
+      <div className={`rounded-2xl overflow-hidden border ${isOwn ? 'border-blue-400' : 'border-gray-200'}`}>
+        <div className="relative w-[200px] h-[200px]">
+          <NextImage
+            src={content.image}
+            alt="Shared post"
+            fill
+            sizes="200px"
+            unoptimized
+            className="object-cover"
+            onError={() => setHasError(true)}
+          />
+        </div>
+        <div className={`p-3 ${isOwn ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'}`}>
+          <p className="font-semibold text-sm">@{content.username}</p>
+          <p className="text-xs opacity-80 truncate">{content.caption}</p>
+          <p className={`text-xs mt-1 ${isOwn ? 'text-blue-200' : 'text-blue-500'}`}>Tap to view post</p>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+// Component for Shared Story with error handling
+function SharedStoryMessage({ content, isOwn }: { content: SharedStory; isOwn: boolean }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return (
+      <div className={`w-[150px] rounded-2xl overflow-hidden border ${isOwn ? 'border-blue-400' : 'border-gray-200'}`}>
+        <div className="w-[150px] h-[200px] bg-gray-900 flex flex-col items-center justify-center p-4">
+          <ImageOff className="w-10 h-10 text-gray-500 mb-2" />
+          <p className="text-gray-400 text-xs text-center">Story expired or no longer available</p>
+          <p className="text-gray-500 text-xs mt-1">@{content.username}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Link href={`/story?userId=${content.username}`} className="block w-[150px]">
+      <div className={`rounded-2xl overflow-hidden border ${isOwn ? 'border-blue-400' : 'border-gray-200'}`}>
+        <div className="relative w-[150px] h-[267px] bg-gray-900">
+          <NextImage
+            src={content.image}
+            alt="Shared story"
+            fill
+            sizes="150px"
+            unoptimized
+            className="object-cover"
+            onError={() => setHasError(true)}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+          <div className="absolute bottom-2 left-2 right-2">
+            <p className="text-white font-semibold text-sm">@{content.username}</p>
+            <p className="text-white/80 text-xs">Story</p>
+            <p className="text-blue-300 text-xs mt-1">Tap to view story</p>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+// Component for Shared Reel with error handling
+function SharedReelMessage({ content, isOwn }: { content: SharedReel; isOwn: boolean }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return (
+      <div className={`w-[150px] rounded-2xl overflow-hidden border ${isOwn ? 'border-blue-400' : 'border-gray-200'}`}>
+        <div className="w-[150px] h-[200px] bg-black flex flex-col items-center justify-center p-4">
+          <ImageOff className="w-10 h-10 text-gray-500 mb-2" />
+          <p className="text-gray-400 text-xs text-center">Reel is no longer available</p>
+          <p className="text-gray-500 text-xs mt-1">@{content.username}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Link href={`/reel/${content.reelId}`} className="block w-[150px]">
+      <div className={`rounded-2xl overflow-hidden border ${isOwn ? 'border-blue-400' : 'border-gray-200'}`}>
+        <div className="relative w-[150px] h-[267px] bg-black">
+          <NextImage
+            src={content.thumbnail}
+            alt="Shared reel"
+            fill
+            sizes="150px"
+            unoptimized
+            className="object-cover"
+            onError={() => setHasError(true)}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+          <div className="absolute bottom-2 left-2 right-2">
+            <p className="text-white font-semibold text-sm">@{content.username}</p>
+            <p className="text-white/80 text-xs truncate">{content.caption || 'Reel'}</p>
+            <p className="text-blue-300 text-xs mt-1">Tap to view reel</p>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 // Helper to parse shared content
 function parseSharedContent(text: string): SharedContent | null {
@@ -486,80 +608,15 @@ export default function ChatPage() {
                   
                   if (sharedContent) {
                     if (sharedContent.type === 'shared_post') {
-                      // Shared Post
-                      return (
-                        <Link href={`/post/${sharedContent.postId}`} className="block w-[200px]">
-                          <div className={`rounded-2xl overflow-hidden border ${isOwn ? 'border-blue-400' : 'border-gray-200'}`}>
-                            <div className="relative w-[200px] h-[200px]">
-                              <NextImage
-                                src={sharedContent.image}
-                                alt="Shared post"
-                                fill
-                                sizes="200px"
-                                unoptimized
-                                className="object-cover"
-                              />
-                            </div>
-                            <div className={`p-3 ${isOwn ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'}`}>
-                              <p className="font-semibold text-sm">@{sharedContent.username}</p>
-                              <p className="text-xs opacity-80 truncate">{sharedContent.caption}</p>
-                              <p className={`text-xs mt-1 ${isOwn ? 'text-blue-200' : 'text-blue-500'}`}>Tap to view post</p>
-                            </div>
-                          </div>
-                        </Link>
-                      );
+                      return <SharedPostMessage content={sharedContent} isOwn={isOwn} />;
                     }
                     
                     if (sharedContent.type === 'shared_story') {
-                      // Shared Story
-                      return (
-                        <Link href={`/story?userId=${sharedContent.username}`} className="block w-[150px]">
-                          <div className={`rounded-2xl overflow-hidden border ${isOwn ? 'border-blue-400' : 'border-gray-200'}`}>
-                            <div className="relative w-[150px] h-[267px] bg-gray-900">
-                              <NextImage
-                                src={sharedContent.image}
-                                alt="Shared story"
-                                fill
-                                sizes="150px"
-                                unoptimized
-                                className="object-cover"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                              <div className="absolute bottom-2 left-2 right-2">
-                                <p className="text-white font-semibold text-sm">@{sharedContent.username}</p>
-                                <p className="text-white/80 text-xs">Story</p>
-                                <p className="text-blue-300 text-xs mt-1">Tap to view story</p>
-                              </div>
-                            </div>
-                          </div>
-                        </Link>
-                      );
+                      return <SharedStoryMessage content={sharedContent} isOwn={isOwn} />;
                     }
                     
                     if (sharedContent.type === 'shared_reel') {
-                      // Shared Reel
-                      return (
-                        <Link href={`/reel/${sharedContent.reelId}`} className="block w-[150px]">
-                          <div className={`rounded-2xl overflow-hidden border ${isOwn ? 'border-blue-400' : 'border-gray-200'}`}>
-                            <div className="relative w-[150px] h-[267px] bg-black">
-                              <NextImage
-                                src={sharedContent.thumbnail}
-                                alt="Shared reel"
-                                fill
-                                sizes="150px"
-                                unoptimized
-                                className="object-cover"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                              <div className="absolute bottom-2 left-2 right-2">
-                                <p className="text-white font-semibold text-sm">@{sharedContent.username}</p>
-                                <p className="text-white/80 text-xs truncate">{sharedContent.caption || 'Reel'}</p>
-                                <p className="text-blue-300 text-xs mt-1">Tap to view reel</p>
-                              </div>
-                            </div>
-                          </div>
-                        </Link>
-                      );
+                      return <SharedReelMessage content={sharedContent} isOwn={isOwn} />;
                     }
                   }
                   

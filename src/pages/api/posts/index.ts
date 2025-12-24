@@ -90,6 +90,16 @@ async function createPost(req: NextApiRequest, res: NextApiResponse) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    // Verify user exists in database
+    const userExists = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { id: true },
+    });
+
+    if (!userExists) {
+      return res.status(401).json({ error: 'User not found. Please log in again.' });
+    }
+
     const { image, caption } = req.body;
 
     if (!image) {

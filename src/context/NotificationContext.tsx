@@ -48,11 +48,13 @@ function getNotificationMessage(type: string, username: string, text?: string): 
 }
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const { user, isAuthenticated } = useAuth();
+  const { user, token } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [lastChecked, setLastChecked] = useState<string | null>(null);
   const [showToast, setShowToast] = useState<Notification | null>(null);
   const [seenIds, setSeenIds] = useState<Set<string>>(new Set());
+
+  const isAuthenticated = !!user && !!token;
 
   const fetchNewActivity = useCallback(async () => {
     if (!isAuthenticated || !user) return;

@@ -9,6 +9,7 @@ import StoryHighlight from '@/components/profile/StoryHighlight';
 import PostsGrid from '@/components/profile/PostsGrid';
 import { useAuth } from '@/context/AuthContext';
 import { useApi } from '@/hooks/useApi';
+import { useDragScroll } from '@/hooks/useDragScroll';
 
 interface UserProfile {
   id: string;
@@ -119,6 +120,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { user } = useAuth();
   const { get } = useApi();
+  const { ref: highlightsRef, handlers: dragHandlers, isDragging } = useDragScroll<HTMLDivElement>();
   const [profile, setProfile] = useState<UserProfile | null>(cachedProfile);
   const [isLoading, setIsLoading] = useState(!cachedProfile);
   const [hasStory, setHasStory] = useState(cachedHasStory);
@@ -298,9 +300,18 @@ export default function ProfilePage() {
             </div>
 
             {/* Story Highlights */}
-            <div className="flex gap-4 overflow-x-auto hide-scrollbar -mx-4 px-4 pb-4">
+            <div 
+              ref={highlightsRef}
+              onMouseDown={dragHandlers.onMouseDown}
+              onMouseMove={dragHandlers.onMouseMove}
+              onMouseUp={dragHandlers.onMouseUp}
+              onMouseLeave={dragHandlers.onMouseLeave}
+              className={`flex gap-4 overflow-x-auto hide-scrollbar -mx-4 px-4 pb-4 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+            >
               {highlights.map((highlight) => (
-                <StoryHighlight key={highlight.id} {...highlight} />
+                <div key={highlight.id} className="flex-shrink-0">
+                  <StoryHighlight {...highlight} />
+                </div>
               ))}
             </div>
           </>

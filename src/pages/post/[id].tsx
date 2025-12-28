@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Trash2 } from 'lucide-react';
 import Avatar from '@/components/shared/Avatar';
+import PostImage from '@/components/shared/PostImage';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 
@@ -150,11 +151,9 @@ function PostItem({
 
       {/* Post Image */}
       <div className="relative aspect-square w-full bg-gray-100">
-        <Image
+        <PostImage
           src={post.image}
           alt={`Post by ${post.user.username}`}
-          fill
-          className="object-cover"
         />
       </div>
 

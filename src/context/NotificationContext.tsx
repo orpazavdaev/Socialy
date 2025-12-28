@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 
 interface Notification {
@@ -21,6 +21,8 @@ interface NotificationContextType {
 }
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
+
+const STORAGE_KEY_SEEN_IDS = 'notification_seen_ids';
 
 export function useNotifications() {
   const context = useContext(NotificationContext);
@@ -47,34 +49,68 @@ function getNotificationMessage(type: string, username: string, text?: string): 
   }
 }
 
+function getStoredSeenIds(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_SEEN_IDS);
+    if (stored) {
+      return new Set(JSON.parse(stored));
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return new Set();
+}
+
+function saveSeenIds(seenIds: Set<string>) {
+  if (typeof window === 'undefined') return;
+  try {
+    const idsArray = Array.from(seenIds).slice(-500);
+    localStorage.setItem(STORAGE_KEY_SEEN_IDS, JSON.stringify(idsArray));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { user, token } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [lastChecked, setLastChecked] = useState<string | null>(null);
   const [showToast, setShowToast] = useState<Notification | null>(null);
-  const [seenIds, setSeenIds] = useState<Set<string>>(new Set());
+  
+  // Use refs to avoid dependency issues and stale closures
+  const seenIdsRef = useRef<Set<string>>(getStoredSeenIds());
+  const sessionStartRef = useRef<number>(Date.now());
+  const isFirstFetchRef = useRef(true);
+  const isFetchingRef = useRef(false);
 
   const isAuthenticated = !!user && !!token;
 
   const fetchNewActivity = useCallback(async () => {
-    if (!isAuthenticated || !user) return;
+    if (!isAuthenticated || isFetchingRef.current) return;
+    
+    isFetchingRef.current = true;
 
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
+      const currentToken = localStorage.getItem('token');
+      if (!currentToken) {
+        isFetchingRef.current = false;
+        return;
+      }
 
       const res = await fetch('/api/activity', {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${currentToken}`,
         },
       });
 
-      if (!res.ok) return;
+      if (!res.ok) {
+        isFetchingRef.current = false;
+        return;
+      }
 
       const data = await res.json();
       
       if (data && data.length > 0) {
-        // Find new notifications (not seen before)
         const newNotifications: Notification[] = [];
         
         data.forEach((activity: { 
@@ -84,22 +120,38 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           user: { username: string; avatar: string | null };
           content?: { text?: string };
         }) => {
-          if (!seenIds.has(activity.id)) {
-            // Check if this is truly new (after last checked time)
-            if (!lastChecked || new Date(activity.createdAt) > new Date(lastChecked)) {
-              newNotifications.push({
-                id: activity.id,
-                type: activity.type as Notification['type'],
-                message: getNotificationMessage(activity.type, activity.user.username, activity.content?.text),
-                user: activity.user,
-                createdAt: activity.createdAt,
-              });
-            }
+          // Skip if already seen
+          if (seenIdsRef.current.has(activity.id)) return;
+          
+          // For toast: only show activities that happened AFTER session started
+          // This prevents showing old notifications on every refresh
+          const activityTime = new Date(activity.createdAt).getTime();
+          const isAfterSessionStart = activityTime > sessionStartRef.current;
+          
+          const notification: Notification = {
+            id: activity.id,
+            type: activity.type as Notification['type'],
+            message: getNotificationMessage(activity.type, activity.user.username, activity.content?.text),
+            user: activity.user,
+            createdAt: activity.createdAt,
+          };
+          
+          // Only add to toast queue if:
+          // 1. Not the first fetch (to avoid showing on page load)
+          // 2. Activity happened after session started
+          if (!isFirstFetchRef.current && isAfterSessionStart) {
+            newNotifications.push(notification);
           }
+          
+          // Mark as seen
+          seenIdsRef.current.add(activity.id);
         });
 
+        // Save updated seen IDs
+        saveSeenIds(seenIdsRef.current);
+
+        // Show toast for the most recent new notification
         if (newNotifications.length > 0) {
-          // Show the most recent notification as toast
           const mostRecent = newNotifications[0];
           setShowToast(mostRecent);
           
@@ -107,48 +159,63 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           setTimeout(() => {
             setShowToast(null);
           }, 4000);
-
-          // Add to seen IDs
-          setSeenIds(prev => {
-            const next = new Set(prev);
-            newNotifications.forEach(n => next.add(n.id));
-            return next;
-          });
-
-          // Update notifications list
+          
+          // Add to notifications list
           setNotifications(prev => [...newNotifications, ...prev].slice(0, 50));
         }
-
-        // Update last checked time
-        if (data[0]?.createdAt) {
-          setLastChecked(data[0].createdAt);
+        
+        // Mark first fetch as complete
+        if (isFirstFetchRef.current) {
+          isFirstFetchRef.current = false;
         }
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
+    } finally {
+      isFetchingRef.current = false;
     }
-  }, [isAuthenticated, user, lastChecked, seenIds]);
+  }, [isAuthenticated]);
 
-  // Poll for new activity every 30 seconds
+  // Set up polling - only depends on isAuthenticated
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    // Initial fetch
-    fetchNewActivity();
+    // Reset session start time on mount
+    sessionStartRef.current = Date.now();
+    isFirstFetchRef.current = true;
 
-    // Set up polling
+    // Initial fetch after short delay
+    const initialTimeout = setTimeout(() => {
+      fetchNewActivity();
+    }, 2000);
+
+    // Poll every 30 seconds
     const interval = setInterval(fetchNewActivity, 30000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
   }, [isAuthenticated, fetchNewActivity]);
+
+  // Reset on logout
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setNotifications([]);
+      setShowToast(null);
+      isFirstFetchRef.current = true;
+    }
+  }, [isAuthenticated]);
 
   const dismissToast = useCallback(() => {
     setShowToast(null);
   }, []);
 
   const markAllAsRead = useCallback(() => {
+    notifications.forEach(n => seenIdsRef.current.add(n.id));
+    saveSeenIds(seenIdsRef.current);
     setNotifications([]);
-  }, []);
+  }, [notifications]);
 
   return (
     <NotificationContext.Provider
@@ -164,6 +231,3 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     </NotificationContext.Provider>
   );
 }
-
-
-

@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Image from 'next/image';
 import Link from 'next/link';
 import { X, ChevronRight, Camera, Image as ImageIcon, Film, Upload, FolderOpen } from 'lucide-react';
+import PostImage from '@/components/shared/PostImage';
 import { useApi } from '@/hooks/useApi';
 import { clearHomeCache } from './index';
 
@@ -70,14 +71,26 @@ export default function CreatePage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Create a local URL for preview
-      const url = URL.createObjectURL(file);
-      setSelectedMedia(url);
-      setCustomUrl(url);
-      setError('');
+      const isVideoFile = file.type.startsWith('video/');
+      const maxSize = isVideoFile ? 50 * 1024 * 1024 : 5 * 1024 * 1024; // 50MB for video, 5MB for image
       
-      // Note: In a real app, you would upload this file to a storage service
-      // and get back a URL. For now, we'll just use the local preview.
+      if (file.size > maxSize) {
+        setError(isVideoFile ? 'Video is too large. Maximum size is 50MB.' : 'Image is too large. Maximum size is 5MB.');
+        return;
+      }
+
+      // Convert to base64 for storage
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setSelectedMedia(base64);
+        setCustomUrl(base64);
+        setError('');
+      };
+      reader.onerror = () => {
+        setError('Failed to read file');
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -91,9 +104,28 @@ export default function CreatePage() {
 
     setError('');
 
+    let finalUrl = mediaUrl;
+    let thumbnailUrl = '';
+
+    // If the media is base64, upload it first
+    if (mediaUrl.startsWith('data:image/') || mediaUrl.startsWith('data:video/')) {
+      const isVideoUpload = mediaUrl.startsWith('data:video/');
+      const uploadResult = await post<{ url: string; thumbnail?: string }>('/api/upload', 
+        isVideoUpload ? { video: mediaUrl } : { image: mediaUrl }
+      );
+      if (!uploadResult?.url) {
+        setError(isVideoUpload ? 'Failed to upload video' : 'Failed to upload image');
+        return;
+      }
+      finalUrl = uploadResult.url;
+      if (uploadResult.thumbnail) {
+        thumbnailUrl = uploadResult.thumbnail;
+      }
+    }
+
     if (createType === 'POST') {
       const result = await post('/api/posts', {
-        image: mediaUrl,
+        image: finalUrl,
         caption: caption,
       });
 
@@ -105,7 +137,7 @@ export default function CreatePage() {
       }
     } else if (createType === 'STORY') {
       const result = await post('/api/stories', {
-        image: mediaUrl,
+        image: finalUrl,
       });
 
       if (result) {
@@ -116,7 +148,8 @@ export default function CreatePage() {
       }
     } else if (createType === 'REEL') {
       const result = await post('/api/reels', {
-        video: mediaUrl,
+        video: finalUrl,
+        thumbnail: thumbnailUrl || undefined,
         caption: caption,
       });
 
@@ -158,22 +191,46 @@ export default function CreatePage() {
       {/* Selected Media Preview */}
       <div className="relative aspect-square bg-gray-900 flex items-center justify-center">
         {selectedMedia || customUrl ? (
-          isVideo && (selectedMedia.includes('.mp4') || customUrl.includes('.mp4')) ? (
-            <video
-              src={customUrl || selectedMedia}
-              className="w-full h-full object-contain"
-              controls
-              muted
-            />
-          ) : (
-          <Image
-              src={customUrl || selectedMedia}
-            alt="Selected"
-            fill
-            className="object-contain"
-            onError={() => setError('Invalid image URL')}
-          />
-          )
+          // Check if it's a video (either by file extension or data URL type)
+          (() => {
+            const mediaUrl = customUrl || selectedMedia;
+            const isVideoMedia = mediaUrl.startsWith('data:video/') || 
+                                 mediaUrl.includes('.mp4') || 
+                                 mediaUrl.includes('.mov') || 
+                                 mediaUrl.includes('.webm');
+            
+            if (isVideoMedia) {
+              return (
+                <video
+                  src={mediaUrl}
+                  className="w-full h-full object-contain"
+                  controls
+                  muted
+                  autoPlay
+                  loop
+                />
+              );
+            } else if (mediaUrl.startsWith('data:image/')) {
+              return (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={mediaUrl}
+                  alt="Selected"
+                  className="w-full h-full object-contain"
+                />
+              );
+            } else {
+              return (
+                <Image
+                  src={mediaUrl}
+                  alt="Selected"
+                  fill
+                  className="object-contain"
+                  onError={() => setError('Invalid image URL')}
+                />
+              );
+            }
+          })()
         ) : (
           <div className="text-center text-gray-500">
             {isVideo ? (
@@ -293,11 +350,9 @@ export default function CreatePage() {
                 className={`aspect-square relative ${selectedMedia === image ? 'ring-2 ring-blue-500 ring-inset' : ''}`}
                 onClick={() => handleSelectMedia(image)}
             >
-              <Image
+              <PostImage
                 src={image}
-                  alt={`Media ${index + 1}`}
-                fill
-                className="object-cover"
+                alt={`Media ${index + 1}`}
               />
             </button>
             ))

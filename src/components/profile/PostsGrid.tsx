@@ -1,5 +1,5 @@
-import Image from 'next/image';
 import Link from 'next/link';
+import PostImage from '@/components/shared/PostImage';
 
 interface Post {
   id: string;
@@ -20,11 +20,9 @@ export default function PostsGrid({ posts, username }: PostsGridProps) {
           href={username ? `/post/${post.id}?username=${username}` : `/post/${post.id}`}
           className="relative aspect-square"
         >
-          <Image
+          <PostImage
             src={post.image}
             alt={`Post ${post.id}`}
-            fill
-            className="object-cover"
           />
         </Link>
       ))}

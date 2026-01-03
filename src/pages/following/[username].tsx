@@ -12,6 +12,7 @@ interface User {
   username: string;
   fullName: string | null;
   avatar: string | null;
+  isFollowing?: boolean;
 }
 
 function UserSkeleton() {
@@ -35,7 +36,6 @@ export default function FollowingPage() {
   
   const [following, setFollowing] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (username) {
@@ -46,34 +46,32 @@ export default function FollowingPage() {
   const loadFollowing = async () => {
     setIsLoading(true);
     
-    const [followingData, myFollowingData] = await Promise.all([
-      get<User[]>(`/api/users/${username}/following`),
-      currentUser?.username ? get<User[]>(`/api/users/${currentUser.username}/following`) : Promise.resolve(null),
-    ]);
+    const followingData = await get<User[]>(`/api/users/${username}/following`);
 
     if (followingData) {
       setFollowing(followingData);
     }
 
-    if (myFollowingData) {
-      setFollowingIds(new Set(myFollowingData.map(u => u.id)));
-    }
-
     setIsLoading(false);
   };
 
-  const handleFollow = async (userId: string, userUsername: string) => {
-    const result = await post<{ following: boolean }>(`/api/users/${userUsername}/follow`, {});
+  const handleFollow = async (userId: string, targetUsername: string) => {
+    // Optimistic update
+    setFollowing(prev => prev.map(user => 
+      user.id === userId ? { ...user, isFollowing: !user.isFollowing } : user
+    ));
+
+    const result = await post<{ following: boolean }>(`/api/users/${targetUsername}/follow`, {});
+    
     if (result) {
-      setFollowingIds(prev => {
-        const newSet = new Set(prev);
-        if (result.following) {
-          newSet.add(userId);
-        } else {
-          newSet.delete(userId);
-        }
-        return newSet;
-      });
+      setFollowing(prev => prev.map(user => 
+        user.id === userId ? { ...user, isFollowing: result.following } : user
+      ));
+    } else {
+      // Revert on error
+      setFollowing(prev => prev.map(user => 
+        user.id === userId ? { ...user, isFollowing: !user.isFollowing } : user
+      ));
     }
   };
 
@@ -123,11 +121,11 @@ export default function FollowingPage() {
               </div>
               {user.id !== currentUser?.id && (
                 <Button
-                  variant={followingIds.has(user.id) ? 'secondary' : 'primary'}
+                  variant={user.isFollowing ? 'secondary' : 'primary'}
                   size="sm"
                   onClick={() => handleFollow(user.id, user.username)}
                 >
-                  {followingIds.has(user.id) ? 'Following' : 'Follow'}
+                  {user.isFollowing ? 'Following' : 'Follow'}
                 </Button>
               )}
             </div>

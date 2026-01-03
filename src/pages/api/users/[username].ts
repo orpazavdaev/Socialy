@@ -34,10 +34,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             image: true,
           },
         },
-        followers: payload ? {
-          where: { followerId: payload.userId },
-          select: { id: true },
-        } : false,
         _count: {
           select: {
             posts: true,
@@ -52,14 +48,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const isFollowing = payload && user.followers && user.followers.length > 0;
+    // Check if current user is following this profile user
+    let isFollowing = false;
+    if (payload) {
+      const followRecord = await prisma.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: payload.userId,
+            followingId: user.id,
+          },
+        },
+      });
+      isFollowing = !!followRecord;
+    }
 
     res.status(200).json({
-      ...user,
+      id: user.id,
+      username: user.username,
+      fullName: user.fullName,
+      bio: user.bio,
+      avatar: user.avatar,
+      createdAt: user.createdAt,
+      posts: user.posts,
+      highlights: user.highlights,
       postsCount: user._count.posts,
       followersCount: user._count.followers,
       followingCount: user._count.following,
-      isFollowing: !!isFollowing,
+      isFollowing,
     });
   } catch (error) {
     console.error('Get user error:', error);

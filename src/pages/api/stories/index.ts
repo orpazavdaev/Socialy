@@ -19,27 +19,12 @@ async function getStories(req: NextApiRequest, res: NextApiResponse) {
     // Get stories from last 24 hours
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-    // If user is logged in, get IDs of users they follow
-    let followedUserIds: string[] = [];
-    if (currentUserId) {
-      const follows = await prisma.follow.findMany({
-        where: { followerId: currentUserId },
-        select: { followingId: true },
-      });
-      followedUserIds = follows.map(f => f.followingId);
-      // Also include the current user's own stories
-      followedUserIds.push(currentUserId);
-    }
-
+    // For POC/demo: Show all stories from all users
     const stories = await prisma.story.findMany({
       where: {
         createdAt: {
           gte: oneDayAgo,
         },
-        // Only get stories from followed users (if logged in)
-        ...(currentUserId ? {
-          userId: { in: followedUserIds },
-        } : {}),
       },
       orderBy: { createdAt: 'asc' }, // Oldest first within each user
       include: {

@@ -20,23 +20,11 @@ async function getPosts(req: NextApiRequest, res: NextApiResponse) {
     const payload = getUserFromRequest(req);
     const currentUserId = payload?.userId;
 
-    // Get IDs of users the current user follows (plus own posts)
-    let followedUserIds: string[] = [];
-    if (currentUserId) {
-      const follows = await prisma.follow.findMany({
-        where: { followerId: currentUserId },
-        select: { followingId: true },
-      });
-      followedUserIds = follows.map(f => f.followingId);
-      // Include own posts
-      followedUserIds.push(currentUserId);
-    }
-
+    // For POC/demo: Show all posts from all users
+    // In production, you might want to filter by followed users only
     const posts = await prisma.post.findMany({
-      where: currentUserId && followedUserIds.length > 0 ? {
-        userId: { in: followedUserIds },
-      } : {},
       orderBy: { createdAt: 'desc' },
+      take: 50, // Limit to 50 posts for performance
       include: {
         user: {
           select: {

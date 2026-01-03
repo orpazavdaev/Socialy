@@ -91,17 +91,23 @@ export default function UserProfilePage() {
     
     // Optimistic update
     const wasFollowing = isFollowing;
+    const previousCount = followersCount;
     setIsFollowing(!isFollowing);
-    setFollowersCount(prev => isFollowing ? prev - 1 : prev + 1);
+    setFollowersCount(prev => wasFollowing ? prev - 1 : prev + 1);
 
     const result = await apiPost<{ following: boolean }>(`/api/users/${profile.username}/follow`, {});
     
     if (result) {
       setIsFollowing(result.following);
+      // Update count based on actual result
+      if (result.following !== !wasFollowing) {
+        // Server state differs from expected, reload profile
+        loadProfile();
+      }
     } else {
       // Revert on error
       setIsFollowing(wasFollowing);
-      setFollowersCount(prev => wasFollowing ? prev : prev - 1);
+      setFollowersCount(previousCount);
     }
   };
 

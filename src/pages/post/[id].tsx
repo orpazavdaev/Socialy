@@ -21,6 +21,7 @@ interface Post {
   likesCount: number;
   commentsCount: number;
   isLiked: boolean;
+  isSaved?: boolean;
 }
 
 interface Comment {
@@ -71,12 +72,14 @@ function PostItem({
   post, 
   currentUserId,
   onLike,
+  onSave,
   onDelete,
   isDeleting,
 }: { 
   post: Post;
   currentUserId?: string;
   onLike: (postId: string) => void;
+  onSave: (postId: string) => void;
   onDelete: (postId: string) => void;
   isDeleting: boolean;
 }) {
@@ -84,6 +87,7 @@ function PostItem({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isLiked, setIsLiked] = useState(post.isLiked);
   const [likesCount, setLikesCount] = useState(post.likesCount);
+  const [isSaved, setIsSaved] = useState(post.isSaved ?? false);
   const menuRef = useRef<HTMLDivElement>(null);
   
   const isOwner = currentUserId === post.user.id;
@@ -92,6 +96,11 @@ function PostItem({
     setIsLiked(!isLiked);
     setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
     onLike(post.id);
+  };
+
+  const handleSave = () => {
+    setIsSaved(!isSaved);
+    onSave(post.id);
   };
 
   useEffect(() => {
@@ -171,8 +180,8 @@ function PostItem({
               <Send className="w-6 h-6" />
             </button>
           </div>
-          <button>
-            <Bookmark className="w-6 h-6" />
+          <button onClick={handleSave} className="p-1">
+            <Bookmark className={`w-6 h-6 transition-colors ${isSaved ? 'fill-current text-black' : ''}`} />
           </button>
         </div>
 
@@ -297,6 +306,10 @@ export default function PostPage() {
     await apiPost(`/api/posts/${postId}/like`, {});
   };
 
+  const handleSave = async (postId: string) => {
+    await apiPost(`/api/posts/${postId}/save`, {});
+  };
+
   const handleDelete = async (postId: string) => {
     setIsDeleting(true);
     const result = await del(`/api/posts/${postId}`);
@@ -377,6 +390,7 @@ export default function PostPage() {
                 post={post}
                 currentUserId={user?.id}
                 onLike={handleLike}
+                onSave={handleSave}
                 onDelete={handleDelete}
                 isDeleting={isDeleting}
               />

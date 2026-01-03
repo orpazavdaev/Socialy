@@ -37,6 +37,10 @@ async function getPost(req: NextApiRequest, res: NextApiResponse, id: string) {
           where: { userId: currentUserId },
           select: { userId: true },
         },
+        savedBy: currentUserId ? {
+          where: { userId: currentUserId },
+          select: { userId: true },
+        } : false,
         _count: {
           select: {
             likes: true,
@@ -50,6 +54,10 @@ async function getPost(req: NextApiRequest, res: NextApiResponse, id: string) {
       return res.status(404).json({ error: 'Post not found' });
     }
 
+    // Handle savedBy which can be array or undefined
+    const savedByArray = post.savedBy as { userId: string }[] | undefined;
+    const isSaved = currentUserId && savedByArray ? savedByArray.length > 0 : false;
+
     return res.status(200).json({
       id: post.id,
       image: post.image,
@@ -59,6 +67,7 @@ async function getPost(req: NextApiRequest, res: NextApiResponse, id: string) {
       likesCount: post._count.likes,
       commentsCount: post._count.comments,
       isLiked: post.likes.length > 0,
+      isSaved,
     });
   } catch (error) {
     console.error('Error fetching post:', error);

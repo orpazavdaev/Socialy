@@ -51,17 +51,23 @@ async function getPosts(req: NextApiRequest, res: NextApiResponse) {
       },
     });
 
-    const postsWithCounts = posts.map((post) => ({
-      id: post.id,
-      image: post.image,
-      caption: post.caption,
-      createdAt: post.createdAt,
-      user: post.user,
-      likesCount: post._count.likes,
-      commentsCount: post._count.comments,
-      likedByUser: post.likes.map((like) => like.userId),
-      isSaved: currentUserId ? (post.savedBy && post.savedBy.length > 0) : false,
-    }));
+    const postsWithCounts = posts.map((post) => {
+      // Handle savedBy which can be array or undefined depending on auth state
+      const savedByArray = post.savedBy as { userId: string }[] | undefined;
+      const isSaved = currentUserId && savedByArray ? savedByArray.length > 0 : false;
+      
+      return {
+        id: post.id,
+        image: post.image,
+        caption: post.caption,
+        createdAt: post.createdAt,
+        user: post.user,
+        likesCount: post._count.likes,
+        commentsCount: post._count.comments,
+        likedByUser: post.likes.map((like) => like.userId),
+        isSaved,
+      };
+    });
 
     logger.info('Posts fetched', { metadata: { count: postsWithCounts.length } });
     res.status(200).json(postsWithCounts);

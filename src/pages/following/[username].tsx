@@ -3,7 +3,6 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import Avatar from '@/components/shared/Avatar';
-import Button from '@/components/shared/Button';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 
@@ -32,7 +31,7 @@ export default function FollowingPage() {
   const router = useRouter();
   const { username } = router.query;
   const { get, post } = useApi();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, token } = useAuth();
   
   const [following, setFollowing] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -119,14 +118,17 @@ export default function FollowingPage() {
                   )}
                 </Link>
               </div>
-              {user.id !== currentUser?.id && (
-                <Button
-                  variant={user.isFollowing ? 'secondary' : 'primary'}
-                  size="sm"
+              {token && user.id !== currentUser?.id && (
+                <button
+                  className={`px-4 py-1.5 text-sm rounded-lg font-semibold transition-colors ${
+                    user.isFollowing 
+                      ? 'bg-gray-100 hover:bg-gray-200 text-gray-900' 
+                      : 'bg-blue-500 hover:bg-blue-600 text-white'
+                  }`}
                   onClick={() => handleFollow(user.id, user.username)}
                 >
                   {user.isFollowing ? 'Following' : 'Follow'}
-                </Button>
+                </button>
               )}
             </div>
           ))

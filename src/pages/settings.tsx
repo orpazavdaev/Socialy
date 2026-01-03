@@ -75,10 +75,10 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* How to use Instagram */}
+      {/* How to use Socialy */}
       <div className="mt-6">
         <p className="px-4 text-xs text-gray-500 uppercase tracking-wide mb-2">
-          How to use Instagram
+          How to use Socialy
         </p>
         <div className="space-y-1">
           {howToUseItems.map((item, index) => (

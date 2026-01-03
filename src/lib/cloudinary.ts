@@ -19,7 +19,7 @@ export interface UploadResult {
  * @param folder - Optional folder name in Cloudinary
  * @returns The uploaded image URL and public ID
  */
-export async function uploadImage(base64Image: string, folder = 'instagram'): Promise<UploadResult> {
+export async function uploadImage(base64Image: string, folder = 'socialy'): Promise<UploadResult> {
   const result = await cloudinary.uploader.upload(base64Image, {
     folder,
     resource_type: 'image',
@@ -42,7 +42,7 @@ export async function uploadImage(base64Image: string, folder = 'instagram'): Pr
  * @param folder - Optional folder name in Cloudinary
  * @returns The uploaded video URL, public ID, and thumbnail
  */
-export async function uploadVideo(base64Video: string, folder = 'instagram'): Promise<UploadResult> {
+export async function uploadVideo(base64Video: string, folder = 'socialy'): Promise<UploadResult> {
   const result = await cloudinary.uploader.upload(base64Video, {
     folder,
     resource_type: 'video',

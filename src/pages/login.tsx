@@ -46,7 +46,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-serif italic text-white drop-shadow-lg">
-            Instagram
+            Socialy
           </h1>
         </div>
 
@@ -127,9 +127,9 @@ export default function LoginPage() {
         </div>
 
         {/* Demo credentials */}
-        <div className="mt-4 text-center text-white/80 text-sm">
+        {/* <div className="mt-4 text-center text-white/80 text-sm">
           <p>Demo: username & password = &quot;1&quot;</p>
-        </div>
+        </div> */}
       </div>
     </div>
   );

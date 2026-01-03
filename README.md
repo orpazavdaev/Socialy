@@ -1,6 +1,6 @@
-# 📸 Instagram Clone
+# 📸 Socialy
 
-A beautiful, mobile-first Instagram clone built with **Next.js 14 Pages Router**, **TypeScript**, and **Tailwind CSS**.
+A beautiful, mobile-first social media app built with **Next.js 14 Pages Router**, **TypeScript**, and **Tailwind CSS**.
 
 ![Next.js](https://img.shields.io/badge/Next.js-14-black?style=flat-square&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue?style=flat-square&logo=typescript)
@@ -77,4 +77,4 @@ src/
 
 ## 📄 License
 
-This project is for educational purposes only. Instagram is a trademark of Meta Platforms, Inc.
+This project is for educational purposes only.

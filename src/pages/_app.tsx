@@ -36,7 +36,7 @@ function AppContent({ Component, pageProps }: AppProps) {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 flex flex-col items-center justify-center">
-        {/* Instagram Logo */}
+        {/* Socialy Logo */}
         <div className="relative mb-8">
           <div className="w-24 h-24 rounded-3xl bg-white/20 backdrop-blur-sm flex items-center justify-center animate-pulse">
             <svg 
@@ -52,9 +52,9 @@ function AppContent({ Component, pageProps }: AppProps) {
           <div className="absolute inset-0 rounded-3xl border-4 border-white/30 border-t-white animate-spin" style={{ animationDuration: '1s' }} />
         </div>
         
-        {/* Instagram text */}
+        {/* Socialy text */}
         <h1 className="text-3xl font-serif italic text-white mb-4 animate-pulse">
-          Instagram
+          Socialy
         </h1>
         
         {/* Loading dots */}
@@ -83,8 +83,8 @@ function AppContent({ Component, pageProps }: AppProps) {
   return (
     <>
       <Head>
-        <title>Instagram</title>
-        <meta name="description" content="Instagram Clone - Share photos and videos with friends" />
+        <title>Socialy</title>
+        <meta name="description" content="Socialy - Share photos and videos with friends" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -107,7 +107,7 @@ function AppContent({ Component, pageProps }: AppProps) {
         
         {/* Desktop branding */}
         <div className="hidden md:flex flex-col items-center mt-6 text-gray-500">
-          <p className="text-sm">Instagram Clone</p>
+          <p className="text-sm">Socialy</p>
           <p className="text-xs mt-1">Best viewed on mobile</p>
         </div>
       </div>

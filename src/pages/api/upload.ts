@@ -44,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (isCloudinaryConfigured) {
       if (isVideo) {
         // Upload video to Cloudinary
-        const result = await uploadVideo(media, 'instagram-reels');
+        const result = await uploadVideo(media, 'socialy-reels');
         return res.status(200).json({ 
           url: result.url, 
           publicId: result.publicId,
@@ -52,7 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       } else {
         // Upload image to Cloudinary
-        const result = await uploadImage(media, 'instagram-posts');
+        const result = await uploadImage(media, 'socialy-posts');
         return res.status(200).json({ url: result.url, publicId: result.publicId });
       }
     } else {

@@ -16,7 +16,7 @@ async function main() {
       username: '1',
       password: hashedPassword,
       fullName: 'Demo User',
-      bio: 'This is a demo account 👋\nWelcome to Instagram Clone!',
+      bio: 'This is a demo account 👋\nWelcome to Socialy!',
       avatar: 'https://i.pravatar.cc/150?img=33',
     },
   });

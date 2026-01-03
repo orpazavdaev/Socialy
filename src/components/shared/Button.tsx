@@ -10,7 +10,7 @@ interface ButtonProps {
 }
 
 const variants = {
-  primary: 'bg-instagram-blue hover:bg-blue-600 text-white',
+  primary: 'bg-socialy-blue hover:bg-blue-600 text-white',
   secondary: 'bg-gray-100 hover:bg-gray-200 text-gray-900',
   outline: 'border border-gray-300 hover:bg-gray-50 text-gray-900',
 };

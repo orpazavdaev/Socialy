@@ -11,7 +11,7 @@ export default function handler(
   res: NextApiResponse<Data>
 ) {
   res.status(200).json({
-    message: 'Instagram API',
+    message: 'Socialy API',
     version: '1.0.0',
     endpoints: [
       '/api/users',

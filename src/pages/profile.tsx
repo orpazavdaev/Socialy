@@ -202,7 +202,7 @@ export default function ProfilePage() {
       try {
         await navigator.share({
           title: `${profile?.fullName} (@${profile?.username})`,
-          text: `Check out ${profile?.username}'s profile on Instagram`,
+          text: `Check out ${profile?.username}'s profile on Socialy`,
           url: profileUrl,
         });
         return;

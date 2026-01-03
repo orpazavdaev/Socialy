@@ -256,7 +256,17 @@ export default function Home() {
 
   // Save/unsave post
   const handleSave = async (postId: string) => {
-    if (!currentUserId) return;
+    const userId = currentUser?.id;
+    
+    if (!userId) {
+      console.warn('Cannot save: user not logged in');
+      return;
+    }
+    
+    // Get current state for potential revert
+    const currentPost = posts.find(p => p.id === postId);
+    const wasSaved = currentPost?.isSaved ?? false;
+    
     
     // Optimistic update
     setPosts(prevPosts => {
@@ -274,7 +284,34 @@ export default function Home() {
     });
 
     // Send to server
-    await apiPost<{ saved: boolean }>(`/api/posts/${postId}/save`, {});
+    const result = await apiPost<{ saved: boolean }>(`/api/posts/${postId}/save`, {});
+    
+    if (result) {
+      // Update with server's response
+      setPosts(prevPosts => {
+        const updatedPosts = prevPosts.map(post => {
+          if (post.id === postId) {
+            return { ...post, isSaved: result.saved };
+          }
+          return post;
+        });
+        cachedPosts = updatedPosts;
+        return updatedPosts;
+      });
+    } else {
+      // Revert on error
+      console.warn('Save API failed, reverting');
+      setPosts(prevPosts => {
+        const updatedPosts = prevPosts.map(post => {
+          if (post.id === postId) {
+            return { ...post, isSaved: wasSaved };
+          }
+          return post;
+        });
+        cachedPosts = updatedPosts;
+        return updatedPosts;
+      });
+    }
   };
 
   // Open share modal
@@ -322,9 +359,8 @@ export default function Home() {
     u.fullName?.toLowerCase().includes(shareSearch.toLowerCase())
   );
 
-  const currentUserId = typeof window !== 'undefined' 
-    ? JSON.parse(localStorage.getItem('user') || '{}').id 
-    : null;
+  // Use currentUser from auth context instead of localStorage
+  const currentUserId = currentUser?.id || null;
 
   return (
     <div className="bg-white">
@@ -510,8 +546,13 @@ export default function Home() {
                         <Send className="w-6 h-6" />
                       </button>
                     </div>
-                    <button onClick={() => handleSave(post.id)}>
-                      <Bookmark className={`w-6 h-6 ${post.isSaved ? 'fill-black' : ''}`} />
+                    <button 
+                      onClick={() => {
+                        handleSave(post.id);
+                      }}
+                      className="p-1"
+                    >
+                      <Bookmark className={`w-6 h-6 transition-colors ${post.isSaved ? 'fill-current text-black' : ''}`} />
                     </button>
                   </div>
 

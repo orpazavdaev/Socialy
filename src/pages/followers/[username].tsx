@@ -3,7 +3,6 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import Avatar from '@/components/shared/Avatar';
-import Button from '@/components/shared/Button';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 
@@ -12,6 +11,7 @@ interface User {
   username: string;
   fullName: string | null;
   avatar: string | null;
+  isFollowing?: boolean;
 }
 
 function UserSkeleton() {
@@ -31,11 +31,10 @@ export default function FollowersPage() {
   const router = useRouter();
   const { username } = router.query;
   const { get, post } = useApi();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, token } = useAuth();
   
   const [followers, setFollowers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (username) {
@@ -46,34 +45,32 @@ export default function FollowersPage() {
   const loadFollowers = async () => {
     setIsLoading(true);
     
-    const [followersData, myFollowingData] = await Promise.all([
-      get<User[]>(`/api/users/${username}/followers`),
-      currentUser?.username ? get<User[]>(`/api/users/${currentUser.username}/following`) : Promise.resolve(null),
-    ]);
+    const followersData = await get<User[]>(`/api/users/${username}/followers`);
 
     if (followersData) {
       setFollowers(followersData);
     }
 
-    if (myFollowingData) {
-      setFollowingIds(new Set(myFollowingData.map(u => u.id)));
-    }
-
     setIsLoading(false);
   };
 
-  const handleFollow = async (userId: string, username: string) => {
-    const result = await post<{ following: boolean }>(`/api/users/${username}/follow`, {});
+  const handleFollow = async (userId: string, targetUsername: string) => {
+    // Optimistic update
+    setFollowers(prev => prev.map(user => 
+      user.id === userId ? { ...user, isFollowing: !user.isFollowing } : user
+    ));
+
+    const result = await post<{ following: boolean }>(`/api/users/${targetUsername}/follow`, {});
+    
     if (result) {
-      setFollowingIds(prev => {
-        const newSet = new Set(prev);
-        if (result.following) {
-          newSet.add(userId);
-        } else {
-          newSet.delete(userId);
-        }
-        return newSet;
-      });
+      setFollowers(prev => prev.map(user => 
+        user.id === userId ? { ...user, isFollowing: result.following } : user
+      ));
+    } else {
+      // Revert on error
+      setFollowers(prev => prev.map(user => 
+        user.id === userId ? { ...user, isFollowing: !user.isFollowing } : user
+      ));
     }
   };
 
@@ -121,14 +118,17 @@ export default function FollowersPage() {
                   )}
                 </Link>
               </div>
-              {follower.id !== currentUser?.id && (
-                <Button
-                  variant={followingIds.has(follower.id) ? 'secondary' : 'primary'}
-                  size="sm"
+              {token && follower.id !== currentUser?.id && (
+                <button
+                  className={`px-4 py-1.5 text-sm rounded-lg font-semibold transition-colors ${
+                    follower.isFollowing 
+                      ? 'bg-gray-100 hover:bg-gray-200 text-gray-900' 
+                      : 'bg-blue-500 hover:bg-blue-600 text-white'
+                  }`}
                   onClick={() => handleFollow(follower.id, follower.username)}
                 >
-                  {followingIds.has(follower.id) ? 'Following' : 'Follow'}
-                </Button>
+                  {follower.isFollowing ? 'Following' : 'Follow'}
+                </button>
               )}
             </div>
           ))

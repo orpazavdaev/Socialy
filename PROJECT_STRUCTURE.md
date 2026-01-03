@@ -1,4 +1,4 @@
-# Instagram Clone - Next.js Project (Pages Router)
+# Socialy - Next.js Project (Pages Router)
 
 ## 📱 תיאור הפרויקט
 
@@ -15,7 +15,7 @@
 ## 📁 מבנה הקבצים
 
 ```
-instagram/
+socialy/
 ├── src/
 │   ├── pages/
 │   │   ├── _app.tsx            # App wrapper
@@ -68,7 +68,7 @@ instagram/
 
 ### 3. הגדרות - `/settings`
 - Meta Accounts Center
-- How to use Instagram
+- How to use Socialy
 - Who can see your content
 
 ### 4. סטורי - `/story`

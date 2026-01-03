@@ -3,7 +3,6 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { ArrowLeft, Grid3X3, UserSquare } from 'lucide-react';
 import Avatar from '@/components/shared/Avatar';
-import Button from '@/components/shared/Button';
 import PostsGrid from '@/components/profile/PostsGrid';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
@@ -62,7 +61,7 @@ export default function UserProfilePage() {
   const router = useRouter();
   const { username } = router.query;
   const { get, post: apiPost } = useApi();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, token, isLoading: authLoading } = useAuth();
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -70,10 +69,12 @@ export default function UserProfilePage() {
   const [followersCount, setFollowersCount] = useState(0);
 
   useEffect(() => {
-    if (username) {
+    // Wait for auth to finish loading before fetching profile
+    // This ensures the token is available for the API call
+    if (username && !authLoading) {
       loadProfile();
     }
-  }, [username]);
+  }, [username, authLoading]);
 
   const loadProfile = async () => {
     setIsLoading(true);
@@ -91,17 +92,23 @@ export default function UserProfilePage() {
     
     // Optimistic update
     const wasFollowing = isFollowing;
+    const previousCount = followersCount;
     setIsFollowing(!isFollowing);
-    setFollowersCount(prev => isFollowing ? prev - 1 : prev + 1);
+    setFollowersCount(prev => wasFollowing ? prev - 1 : prev + 1);
 
     const result = await apiPost<{ following: boolean }>(`/api/users/${profile.username}/follow`, {});
     
     if (result) {
       setIsFollowing(result.following);
+      // Update count based on actual result
+      if (result.following !== !wasFollowing) {
+        // Server state differs from expected, reload profile
+        loadProfile();
+      }
     } else {
       // Revert on error
       setIsFollowing(wasFollowing);
-      setFollowersCount(prev => wasFollowing ? prev : prev - 1);
+      setFollowersCount(previousCount);
     }
   };
 
@@ -123,7 +130,7 @@ export default function UserProfilePage() {
       </div>
 
       {/* Profile Info */}
-      {isLoading ? (
+      {isLoading || authLoading ? (
         <ProfileSkeleton />
       ) : profile ? (
         <div className="px-4 py-4">
@@ -159,20 +166,26 @@ export default function UserProfilePage() {
 
           {/* Action Buttons */}
           <div className="flex gap-2 mb-6">
-            <Button 
-              variant={isFollowing ? 'secondary' : 'primary'} 
-              fullWidth
-              onClick={handleFollow}
-            >
-              {isFollowing ? 'Following' : 'Follow'}
-            </Button>
-            <Button 
-              variant="secondary" 
-              fullWidth
-              onClick={() => router.push(`/chat/${profile.id}`)}
+            {authLoading ? (
+              <div className="flex-1 h-9 bg-gray-100 rounded-lg animate-pulse" />
+            ) : token ? (
+              <button 
+                className={`flex-1 py-2 px-5 text-sm rounded-lg font-semibold transition-colors ${
+                  isFollowing 
+                    ? 'bg-gray-100 hover:bg-gray-200 text-gray-900' 
+                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                }`}
+                onClick={handleFollow}
+              >
+                {isFollowing ? 'Following' : 'Follow'}
+              </button>
+            ) : null}
+            <button 
+              className="flex-1 py-2 px-5 text-sm rounded-lg font-semibold transition-colors bg-gray-100 hover:bg-gray-200 text-gray-900"
+              onClick={() => token ? router.push(`/chat/${profile.id}`) : router.push('/login')}
             >
               Message
-            </Button>
+            </button>
           </div>
         </div>
       ) : (
@@ -192,7 +205,7 @@ export default function UserProfilePage() {
       </div>
 
       {/* Posts Grid */}
-      {isLoading ? (
+      {isLoading || authLoading ? (
         <PostsGridSkeleton />
       ) : profile?.posts && profile.posts.length > 0 ? (
         <PostsGrid posts={profile.posts} username={profile.username} />

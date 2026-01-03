@@ -8,7 +8,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        instagram: {
+        socialy: {
           pink: '#E1306C',
           purple: '#833AB4',
           orange: '#F77737',
@@ -28,7 +28,7 @@ const config: Config = {
         sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
       },
       backgroundImage: {
-        'instagram-gradient': 'linear-gradient(45deg, #F58529, #DD2A7B, #8134AF, #515BD4)',
+        'socialy-gradient': 'linear-gradient(45deg, #F58529, #DD2A7B, #8134AF, #515BD4)',
         'story-gradient': 'linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)',
       },
     },

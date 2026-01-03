@@ -20,23 +20,11 @@ async function getPosts(req: NextApiRequest, res: NextApiResponse) {
     const payload = getUserFromRequest(req);
     const currentUserId = payload?.userId;
 
-    // Get IDs of users the current user follows (plus own posts)
-    let followedUserIds: string[] = [];
-    if (currentUserId) {
-      const follows = await prisma.follow.findMany({
-        where: { followerId: currentUserId },
-        select: { followingId: true },
-      });
-      followedUserIds = follows.map(f => f.followingId);
-      // Include own posts
-      followedUserIds.push(currentUserId);
-    }
-
+    // For POC/demo: Show all posts from all users
+    // In production, you might want to filter by followed users only
     const posts = await prisma.post.findMany({
-      where: currentUserId && followedUserIds.length > 0 ? {
-        userId: { in: followedUserIds },
-      } : {},
       orderBy: { createdAt: 'desc' },
+      take: 50, // Limit to 50 posts for performance
       include: {
         user: {
           select: {
@@ -63,17 +51,23 @@ async function getPosts(req: NextApiRequest, res: NextApiResponse) {
       },
     });
 
-    const postsWithCounts = posts.map((post) => ({
-      id: post.id,
-      image: post.image,
-      caption: post.caption,
-      createdAt: post.createdAt,
-      user: post.user,
-      likesCount: post._count.likes,
-      commentsCount: post._count.comments,
-      likedByUser: post.likes.map((like) => like.userId),
-      isSaved: currentUserId ? (post.savedBy && post.savedBy.length > 0) : false,
-    }));
+    const postsWithCounts = posts.map((post) => {
+      // Handle savedBy which can be array or undefined depending on auth state
+      const savedByArray = post.savedBy as { userId: string }[] | undefined;
+      const isSaved = currentUserId && savedByArray ? savedByArray.length > 0 : false;
+      
+      return {
+        id: post.id,
+        image: post.image,
+        caption: post.caption,
+        createdAt: post.createdAt,
+        user: post.user,
+        likesCount: post._count.likes,
+        commentsCount: post._count.comments,
+        likedByUser: post.likes.map((like) => like.userId),
+        isSaved,
+      };
+    });
 
     logger.info('Posts fetched', { metadata: { count: postsWithCounts.length } });
     res.status(200).json(postsWithCounts);
